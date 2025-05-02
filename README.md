@@ -1,5 +1,7 @@
 # UTPEDU 🏥
-<img src=frontend/public/img/logou.png alt="Logo" width="200">
+<img src=frontend/public/img/logou.png alt="Logo" width="250">
+
+
 ## Tabla de Contenidos
 - [Descripción](#descripción)
 - [Capturas](#capturas)
