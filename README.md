@@ -1,4 +1,4 @@
-# UTPEDU 🏥
+# UTPEDU 📚
 <img src=frontend/public/img/logou.png alt="Logo" width="250">
 
 
