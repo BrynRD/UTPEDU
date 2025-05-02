@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Color principal UTP: #5b36f2 (morado) */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    
+    /* Actualizado: color principal UTP */
+    --primary: 255 84% 58%; /* #5b36f2 */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 260 40% 96%;
+    --secondary-foreground: 255 30% 30%;
+    --muted: 260 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 260 40% 96%;
+    --accent-foreground: 255 30% 30%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 260 30% 92%;
+    --input: 260 30% 92%;
+    --ring: 255 84% 58%; /* #5b36f2 */
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 6%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 6%;
+    --popover-foreground: 210 40% 98%;
+    
+    /* Actualizado: color principal UTP en modo oscuro */
+    --primary: 255 84% 70%; /* Versión más clara de #5b36f2 para contraste */
+    --primary-foreground: 222 47% 10%;
+    
+    --secondary: 260 20% 18%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 260 20% 18%;
+    --muted-foreground: 215 20% 70%;
+    --accent: 260 20% 18%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 260 20% 18%;
+    --input: 260 20% 18%;
+    --ring: 255 80% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Clases de utilidad personalizadas para UTP */
+@layer utilities {
+  .bg-utp-gradient {
+    @apply bg-gradient-to-b from-[#f0edfe] to-white dark:from-gray-900 dark:to-gray-950;
+  }
+  
+  .text-utp {
+    @apply text-[#5b36f2] dark:text-[#7c5df5];
+  }
+  
+  .bg-utp {
+    @apply bg-[#5b36f2] hover:bg-[#4a2bd0];
+  }
+  
+  .bg-utp-light {
+    @apply bg-[#ede8ff] dark:bg-[#5b36f2]/20;
+  }
+  
+  .border-utp {
+    @apply border-[#5b36f2] dark:border-[#7c5df5];
+  }
+
+  .text-utp-light {
+    @apply text-[#a193f0] dark:text-[#a193f0];
+  }
+
+  .hover-utp {
+    @apply hover:text-[#5b36f2] dark:hover:text-[#7c5df5];
+  }
+
+  .ring-utp {
+    @apply ring-[#5b36f2] focus:ring-[#5b36f2] dark:ring-[#7c5df5] dark:focus:ring-[#7c5df5];
+  }
+}
