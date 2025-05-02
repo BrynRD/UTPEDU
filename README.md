@@ -1,5 +1,5 @@
 # UTPEDU 🏥
-![Logo](frontend/public/img/logou.png)  
+<img src=frontend/public/img/logou.png alt="Logo" width="200">
 ## Tabla de Contenidos
 - [Descripción](#descripción)
 - [Capturas](#capturas)
@@ -21,7 +21,7 @@
 
 
 ### Register ®️
-<img src="frontend/public/img/cap3.png" alt="Captura 3" width="800">
+<img src="frontend/public/cap3.png" alt="Captura 3" width="800">
 
 
 ### Dashboard Admin 📊
