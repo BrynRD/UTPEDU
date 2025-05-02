@@ -1,5 +1,5 @@
 # UTPEDU 🏥
-![Logo](frontend/public/img/logou.png)
+![Logo](frontend/public/img/logou.png)  
 ## Tabla de Contenidos
 - [Descripción](#descripción)
 - [Capturas](#capturas)
@@ -13,26 +13,26 @@
 ## Capturas
 
 ### Inicio 🏠
-<img src=frontend/public/cap1.png alt="Captura 1" width="600">
+<img src=frontend/public/cap1.png alt="Captura 1" width="800">
 
 
 ### Login 🔑
-<img src="frontend/public/cap2.png" alt="Captura2" width="700">
+<img src="frontend/public/cap2.png" alt="Captura2" width="800">
 
 
 ### Register ®️
-<img src="frontend/public/img/cap3.png" alt="Captura 3" width="400">
+<img src="frontend/public/img/cap3.png" alt="Captura 3" width="800">
 
 
 ### Dashboard Admin 📊
-<img src="frontend/public/cap4.png" alt="Captura 4" width="400"> 
+<img src="frontend/public/cap4.png" alt="Captura 4" width="800"> 
 
 
 ### Dashboard Alumno 📈
-<img src="frontend/public/cap5.png" alt="Captura 4" width="400"> 
+<img src="frontend/public/cap5.png" alt="Captura 4" width="800"> 
 
 ### Dashboard Docente 📝
-<img src="frontend/public/cap6.png" alt="Captura 4" width="400"> 
+<img src="frontend/public/cap6.png" alt="Captura 4" width="800"> 
 
 
 ## Instalación
