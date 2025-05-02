@@ -19,11 +19,10 @@ dotenv.config();
 // Crear la aplicación Express
 const app = express();
 
-// AÑADIR ESTAS LÍNEAS - Middlewares para procesar JSON y formularios
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware de diagnóstico (temporal, puedes quitarlo después)
+
 app.use((req, res, next) => {
   if (req.method === 'POST' && req.path.includes('/login')) {
     console.log('Solicitud de login recibida:', {
