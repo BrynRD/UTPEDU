@@ -9,9 +9,9 @@
 
 ## Descripción
 **UTPEDU** Es un página web diseñada para la gestion de recursos educativos que incluye:
-- Gestión 
-- Gestión de Médicos
-- Gestión de Especialidades
+- Dashboard Admim
+- Dashboard Estudiantes
+- Dashboard Docentes
 ## Capturas
 
 ### Inicio 🏠
