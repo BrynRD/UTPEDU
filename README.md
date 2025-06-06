@@ -82,4 +82,3 @@ Las variables de entorno están configuradas en el archivo `docker-compose.yml`.
 - Nunca subas credenciales o archivos sensibles al repositorio
 - Mantén actualizadas las dependencias
 - Sigue las mejores prácticas de seguridad en el código
-
