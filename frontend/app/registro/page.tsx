@@ -21,8 +21,8 @@ export default function RegistroPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    tipoUsuario: "estudiante", // Por defecto estudiante
-    institucion: "Universidad Tecnológica del Perú", // Por defecto UTP
+    tipoUsuario: "estudiante", 
+    institucion: "Universidad Tecnológica del Perú", 
     nivelEducativo: "",
     areaEspecialidad: "",
     codigoInstitucional: "",
@@ -31,7 +31,7 @@ export default function RegistroPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   
-  // Generar email automáticamente al cambiar el código institucional
+  
   useEffect(() => {
     if (formData.codigoInstitucional) {
       if (formData.tipoUsuario === 'estudiante') {
@@ -68,7 +68,7 @@ export default function RegistroPage() {
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
     
-    // Limpiar el código institucional cuando cambie el tipo de usuario
+    
     if (name === "tipoUsuario") {
       setFormData(prev => ({
         ...prev,
@@ -86,7 +86,7 @@ export default function RegistroPage() {
     }
   }
 
- // Modificación de la función validateForm para eliminar las validaciones innecesarias
+ 
 const validateForm = () => {
   const newErrors: Record<string, string> = {}
 
@@ -94,7 +94,7 @@ const validateForm = () => {
   if (!formData.apellido.trim()) newErrors.apellido = "El apellido es requerido"
   if (!formData.codigoInstitucional.trim()) newErrors.codigoInstitucional = "El código institucional es requerido"
 
-  // Validación para código institucional según tipo de usuario
+  
   if (formData.tipoUsuario === 'estudiante') {
     if (!formData.codigoInstitucional.match(/^U\d{7}$/)) {
       newErrors.codigoInstitucional = "El código debe tener formato Uxxxxxxx (U seguido de 7 dígitos)"
@@ -140,7 +140,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   setIsLoading(true)
 
   try {
-    // Enviar datos al servidor con valores por defecto para UTP
+    
     const { confirmPassword, ...userData } = formData
     
     const userDataToSend = {
@@ -153,10 +153,10 @@ const handleSubmit = async (e: React.FormEvent) => {
     console.log("Datos a enviar:", userDataToSend)
     const response = await authService.registro(userDataToSend)
     
-    // Guardar token y datos del usuario
+    
     authService.setUserData(response.token, response.usuario)
     
-    // Redirigir al dashboard según el tipo de usuario
+    
     if (response.usuario.rol === 'estudiante') {
       router.push("/dashboard/estudiante")
     } else {
@@ -174,7 +174,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   return (
     <div className="flex min-h-screen">
-      {/* Lado izquierdo - Imagen ilustrativa */}
+      {}
       <div className="hidden md:block md:w-1/2 bg-[#f0edfe]">
         <div className="h-full flex items-center justify-center">
           <div className="w-[75%] p-6">
@@ -191,10 +191,10 @@ const handleSubmit = async (e: React.FormEvent) => {
         </div>
       </div>
     
-      {/* Lado derecho - Formulario */}
+      {}
       <div className="w-full md:w-1/2 flex flex-col justify-center p-6 md:p-12 overflow-y-auto max-h-screen">
         <div className="w-full max-w-md mx-auto">
-          {/* Logo UTP+class con link al inicio */}
+          {}
           <div className="mb-6">
             <Link href="/">
               <Image
@@ -207,7 +207,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             </Link>
           </div>
           
-          {/* Textos de bienvenida alineados a la izquierda */}
+          {}
           <div className="mb-6">
             <h1 className="text-2xl font-semibold text-gray-800">
               Registro de Usuario

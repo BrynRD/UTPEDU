@@ -35,8 +35,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useAuth } from "@/contexts/AuthContext"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
+import { ChangePasswordDialog } from "@/components/dashboard/admin/ChangePasswordDialog"
+import { CreateUserDialog } from "@/components/dashboard/admin/CreateUserDialog"
 
-// Tipos para nuestros datos
+
 interface Usuario {
   id: number
   nombre: string
@@ -81,11 +83,17 @@ export default function AdminDashboard() {
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<Usuario | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isManagingPermissions, setIsManagingPermissions] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isCreatingUser, setIsCreatingUser] = useState(false)
   const { toast } = useToast()
   const { user, isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
-  // Formulario para editar usuario
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage] = useState(15); // 15 users per page
+  const [totalUsers, setTotalUsers] = useState(0);
+
   const [formUsuario, setFormUsuario] = useState({
     nombre: "",
     apellido: "",
@@ -94,7 +102,7 @@ export default function AdminDashboard() {
     activo: true
   })
 
-  // Permisos disponibles
+
   const [permisos, setPermisos] = useState({
     crearRecursos: false,
     editarRecursos: false,
@@ -104,7 +112,7 @@ export default function AdminDashboard() {
     administrarSistema: false
   })
 
-  // Verificar si el usuario tiene acceso
+  
   useEffect(() => {
     if (!loading && (!isAuthenticated || user?.rol !== 'admin')) {
       toast({
@@ -122,29 +130,30 @@ useEffect(() => {
     try {
       setIsLoading(true)
       
-      // Añadir logs para depuración
+     
       console.log('Iniciando fetch de datos...');
       console.log('NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
       
-      // Obtener datos de usuarios
-      console.log('Consultando usuarios...');
-      const resUsuarios = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/usuarios`)
+      // Obtener datos de usuarios con paginación
+      console.log(`Consultando usuarios (frontend): página ${currentPage}, límite ${usersPerPage}`);
+      const resUsuarios = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/usuarios?page=${currentPage}&limit=${usersPerPage}`)
       console.log('Status respuesta usuarios:', resUsuarios.status);
       const dataUsuarios = await resUsuarios.json()
       console.log('Datos de usuarios recibidos:', dataUsuarios);
       
       if (dataUsuarios.usuarios) {
         setUsuarios(dataUsuarios.usuarios)
+        setTotalUsers(dataUsuarios.totalUsuarios); // Set total users from backend
         
-        // Ordenar por fecha de registro (los más recientes primero)
+       
         const recientes = [...dataUsuarios.usuarios]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .slice(0, 5)
+          .slice(0, 5) // Still show 5 recent from the *current page's* fetched users
         
         setUsuariosRecientes(recientes)
       }
       
-      // Obtener recursos más descargados
+     
       console.log('Consultando recursos populares...');
       const resRecursos = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/recursos/populares`)
       const dataRecursos = await resRecursos.json()
@@ -153,7 +162,7 @@ useEffect(() => {
         setRecursosMasDescargados(dataRecursos.recursos)
       }
       
-      // Obtener estadísticas del dashboard
+      
       console.log('Consultando estadísticas...');
       const resEstadisticas = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/estadisticas`)
       const dataEstadisticas = await resEstadisticas.json()
@@ -175,9 +184,9 @@ useEffect(() => {
   }
   
   fetchData()
-}, [toast])
+}, [toast, currentPage, usersPerPage])
 
-  // Manejar búsqueda de usuarios
+
   const usuariosFiltrados = usuarios.filter(usuario => 
     usuario.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     usuario.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -185,7 +194,7 @@ useEffect(() => {
     usuario.codigo_institucional.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // Abrir modal de edición de usuario
+ 
   const handleEditUsuario = (usuario: Usuario) => {
     setUsuarioSeleccionado(usuario)
     setFormUsuario({
@@ -198,18 +207,25 @@ useEffect(() => {
     setIsEditing(true)
   }
 
-  
-// Modificación de la función guardarCambiosUsuario para corregir el problema de roles
+  const handleCambiarContraseña = (usuario: Usuario) => {
+    setUsuarioSeleccionado(usuario)
+    setIsChangingPassword(true)
+  }
+
+  const handlePasswordChanged = () => {
+    console.log('Contraseña cambiada con éxito. Considerar recargar datos de usuario si es necesario.')
+  }
+
 const guardarCambiosUsuario = async () => {
   try {
     if (!usuarioSeleccionado) return
     
-    // Añadir logs detallados para depuración
+  
     console.log('Usuario original:', usuarioSeleccionado);
     console.log('Guardando cambios usuario:', formUsuario);
     console.log('Rol específico a enviar:', formUsuario.rol);
     
-    // Asegurar que el rol está en minúsculas para consistencia
+   
     const datosActualizados = {
       ...formUsuario,
       rol: formUsuario.rol.toLowerCase()
@@ -232,7 +248,7 @@ const guardarCambiosUsuario = async () => {
         description: "Los datos del usuario han sido actualizados correctamente",
       })
       
-      // Actualizar lista de usuarios
+    
       setUsuarios(usuarios.map(u => 
         u.id === usuarioSeleccionado.id ? { ...u, ...datosActualizados } : u
       ))
@@ -250,11 +266,10 @@ const guardarCambiosUsuario = async () => {
     })
   }
 }
- // GESTIONAR PERMISOS
+
 const handleGestionarPermisos = (usuario: Usuario) => {
   setUsuarioSeleccionado(usuario)
   
-  // Obtener permisos del usuario
   const fetchPermissions = async () => {
     try {
       console.log('Consultando permisos para usuario ID:', usuario.id);
@@ -270,7 +285,6 @@ const handleGestionarPermisos = (usuario: Usuario) => {
       }
     } catch (error) {
       console.error("Error detallado al obtener permisos:", error)
-      // Establecer permisos por defecto según el rol
       if (usuario.rol === 'admin') {
         setPermisos({
           crearRecursos: true,
@@ -307,7 +321,6 @@ const handleGestionarPermisos = (usuario: Usuario) => {
   
 }
 
-// Esta función debe ir después de handleGestionarPermisos o antes de guardarPermisos
 
 const toggleUsuarioActivo = async (usuario: Usuario) => {
   try {
@@ -315,7 +328,6 @@ const toggleUsuarioActivo = async (usuario: Usuario) => {
     
     console.log(`Cambiando estado de usuario ${usuario.id} a ${nuevoEstado ? 'activo' : 'inactivo'}`);
     
-    // Cambio importante: SOLO enviar el estado activo, no los demás datos
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/usuarios/${usuario.id}/activo`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -326,7 +338,6 @@ const toggleUsuarioActivo = async (usuario: Usuario) => {
     console.log('Respuesta al cambiar estado:', data);
     
     if (data.success) {
-      // Actualizar la lista de usuarios
       setUsuarios(usuarios.map(u => 
         u.id === usuario.id ? { ...u, activo: nuevoEstado } : u
       ));
@@ -347,7 +358,6 @@ const toggleUsuarioActivo = async (usuario: Usuario) => {
     });
   }
 };
- // GUARDAR PERMISOS
 const guardarPermisos = async () => {
   try {
     if (!usuarioSeleccionado) return
@@ -381,7 +391,45 @@ const guardarPermisos = async () => {
     })
   }
 }
-  // Si está cargando o no está autenticado como admin, mostrar carga
+
+const handleUserCreated = (newUser: Usuario) => {
+  setUsuarios(prevUsers => [...prevUsers, newUser].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+}
+
+// Add Delete User Function
+const handleDeleteUsuario = async (usuarioId: number) => {
+  if (window.confirm("¿Está seguro de que desea eliminar este usuario?")) {
+    try {
+      console.log('Eliminando usuario con ID:', usuarioId);
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/usuarios/${usuarioId}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await response.json();
+      console.log('Respuesta al eliminar usuario:', data);
+      
+      if (data.success) {
+        toast({
+          title: "Usuario eliminado",
+          description: "El usuario ha sido eliminado correctamente",
+        });
+        // Remove the deleted user from the state
+        setUsuarios(prevUsers => prevUsers.filter(user => user.id !== usuarioId));
+      } else {
+        throw new Error(data.message || "Error al eliminar usuario");
+      }
+    } catch (error: any) {
+      console.error("Error detallado al eliminar usuario:", error);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar el usuario",
+        variant: "destructive"
+      });
+    }
+  }
+};
+
   if (loading || (isAuthenticated && user?.rol !== 'admin')) {
     return (
       <div className="container mx-auto py-10 px-4">
@@ -607,6 +655,13 @@ const guardarPermisos = async () => {
                           >
                             Permisos
                           </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={() => handleDeleteUsuario(usuario.id)}
+                          >
+                            Eliminar
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -673,7 +728,7 @@ const guardarPermisos = async () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <Button>
+                <Button onClick={() => setIsCreatingUser(true)}>
                   <User className="mr-2 h-4 w-4" />
                   Nuevo Usuario
                 </Button>
@@ -747,15 +802,20 @@ const guardarPermisos = async () => {
                           >
                             Permisos
                           </Button>
-
-<Button 
-  variant="outline" 
-  size="sm" 
-  onClick={() => toggleUsuarioActivo(usuario)}
-  className={usuario.activo ? "text-red-500 hover:text-red-700" : "text-green-500 hover:text-green-700"}
->
-  {usuario.activo ? "Desactivar" : "Activar"}
-</Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleCambiarContraseña(usuario)}
+                          >
+                            Contraseña
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={() => handleDeleteUsuario(usuario.id)}
+                          >
+                            Eliminar
+                          </Button>
                         </div>
                       </div>
                     ))
@@ -771,6 +831,23 @@ const guardarPermisos = async () => {
                 </div>
               )}
             </CardContent>
+            {/* Pagination Controls */}
+            <div className="flex justify-end space-x-2 p-4">
+              <Button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1 || isLoading}
+                variant="outline"
+              >
+                Anterior
+              </Button>
+              <Button
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                disabled={currentPage * usersPerPage >= totalUsers || isLoading}
+                variant="outline"
+              >
+                Siguiente
+              </Button>
+            </div>
           </Card>
         </TabsContent>
 
@@ -995,6 +1072,22 @@ const guardarPermisos = async () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Nuevo Dialogo para Cambiar Contraseña */}
+      <ChangePasswordDialog
+        isOpen={isChangingPassword}
+        onClose={() => setIsChangingPassword(false)}
+        userId={usuarioSeleccionado?.id || null}
+        userName={`${usuarioSeleccionado?.nombre || ''} ${usuarioSeleccionado?.apellido || ''}`.trim()}
+        onPasswordChanged={handlePasswordChanged}
+      />
+
+      {/* Nuevo Dialogo para Crear Usuario */}
+      <CreateUserDialog
+        isOpen={isCreatingUser}
+        onClose={() => setIsCreatingUser(false)}
+        onUserCreated={handleUserCreated}
+      />
     </div>
   )
 }

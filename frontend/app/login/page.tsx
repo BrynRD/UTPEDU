@@ -58,9 +58,9 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // Usar el método login del contexto
+      
       await login(formData.codigoInstitucional, formData.password)
-      // La redirección la maneja el contexto según el rol del usuario
+      
     } catch (error: any) {
       console.error('Error al iniciar sesión:', error)
       setErrors({
@@ -73,7 +73,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Lado izquierdo - Imagen ilustrativa */}
+     
       <div className="hidden md:block md:w-1/2 bg-[#f0edfe]">
         <div className="h-full flex items-center justify-center">
           <div className="w-[75%] p-6">
@@ -90,10 +90,10 @@ export default function LoginPage() {
         </div>
       </div>
     
-      {/* Lado derecho - Formulario */}
+      {}
       <div className="w-full md:w-1/2 flex flex-col justify-center p-6 md:p-12">
         <div className="w-full max-w-md mx-auto">
-          {/* Logo UTP+class con link al inicio */}
+          {}
           <div className="mb-6">
             <Link href="/">
               <Image
@@ -106,7 +106,7 @@ export default function LoginPage() {
             </Link>
           </div>
           
-          {/* Textos de bienvenida alineados a la izquierda */}
+          {}
           <div className="mb-6">
             <h1 className="text-2xl font-semibold text-gray-800">
               La nueva experiencia digital de aprendizaje
@@ -119,7 +119,7 @@ export default function LoginPage() {
           <p className="text-gray-700 mb-4">Ingresa tus datos para iniciar sesión.</p>
           
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Campo de código institucional */}
+            {}
             <div className="space-y-2">
               <Label htmlFor="codigoInstitucional" className="text-gray-700 font-medium">Código UTP</Label>
               <Input
@@ -141,7 +141,7 @@ export default function LoginPage() {
               )}
             </div>
             
-            {/* Campo de contraseña */}
+            {}
             <div className="space-y-2">
               <Label htmlFor="password" className="text-gray-700 font-medium">Contraseña</Label>
               <div className="relative">
@@ -176,7 +176,7 @@ export default function LoginPage() {
               </div>
             )}
             
-            {/* Botón de inicio de sesión */}
+            {}
             <Button 
               type="submit" 
               disabled={isLoading}
@@ -185,7 +185,7 @@ export default function LoginPage() {
               {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
             </Button>
             
-            {/* Enlace de registro */}
+            {}
             <div className="mt-4">
               <p className="text-sm text-gray-600">
                 ¿No tienes una cuenta?{" "}

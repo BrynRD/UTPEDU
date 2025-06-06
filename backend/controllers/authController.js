@@ -6,10 +6,10 @@ const { pool } = require('../config/db');
 
 exports.registro = async (req, res) => {
   try {
-    const { nombre, apellido, email, password, institucion, nivelEducativo, areaEspecialidad, tipoUsuario } = req.body;
+    const { nombre, apellido, email, password, institucion, areaEspecialidad, tipoUsuario } = req.body;
     
     
-    if (!nombre || !apellido || !email || !password || !institucion || !nivelEducativo || !areaEspecialidad) {
+    if (!nombre || !apellido || !email || !password || !institucion || !areaEspecialidad) {
       return res.status(400).json({ mensaje: 'Todos los campos son obligatorios' });
     }
     
@@ -47,7 +47,6 @@ exports.registro = async (req, res) => {
       rolId, 
       codigoInstitucional: email.split('@')[0], 
       institucion,
-      nivelEducativo,
       areaEspecialidad
     });
     
@@ -135,6 +134,11 @@ exports.login = async (req, res) => {
       return res.status(401).json({ mensaje: 'Credenciales incorrectas' });
     }
     
+    console.log('Contraseña correcta. Generando token...');
+    if (!usuario.rol) {
+      console.error('Error: Rol de usuario no definido para ID:', usuario.id);
+      return res.status(500).json({ mensaje: 'Error interno del servidor: rol de usuario no definido.' });
+    }
     
     const token = jwt.sign(
       { 

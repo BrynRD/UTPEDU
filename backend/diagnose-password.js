@@ -3,14 +3,14 @@ const { pool } = require('./config/db');
 
 async function diagnosticoDeContraseñas() {
   try {
-    // Datos a probar - MODIFICA ESTOS VALORES
-    const usuarioEmail = 'C31585@utp.edu.pe'; // El email del usuario
-    const contraActual = '12345678'; // La contraseña que sí funciona para iniciar sesión
-    const contraNueva = '87654321'; // La contraseña que intentaste establecer
+    
+    const usuarioEmail = 'C31585@utp.edu.pe'; 
+    const contraActual = '12345678'; 
+    const contraNueva = '87654321'; 
     
     console.log('--- DIAGNÓSTICO DE CONTRASEÑAS ---');
     
-    // 1. Obtener el usuario por email
+    
     const [usuarios] = await pool.query('SELECT id, email, password FROM usuarios WHERE LOWER(email) = LOWER(?)', [usuarioEmail]);
     
     if (usuarios.length === 0) {
@@ -27,19 +27,19 @@ async function diagnosticoDeContraseñas() {
     console.log('Usuario encontrado ID:', usuario.id);
     console.log('Hash almacenado:', usuario.password);
     
-    // 2. Verificar la contraseña actual
+    
     const actualMatch = await bcrypt.compare(contraActual, usuario.password);
     console.log('¿La contraseña actual coincide?', actualMatch ? 'SÍ ✅' : 'NO ❌');
     
-    // 3. Verificar la contraseña nueva
+    
     const nuevaMatch = await bcrypt.compare(contraNueva, usuario.password);
     console.log('¿La contraseña nueva coincide?', nuevaMatch ? 'SÍ ✅' : 'NO ❌');
     
-    // 4. Crear un nuevo hash con la contraseña nueva para comparar
+    
     const nuevoHash = await bcrypt.hash(contraNueva, 10);
     console.log('Nuevo hash generado ahora para la contraseña nueva:', nuevoHash);
     
-    // 5. Verificar nuevamente con el hash recién generado
+    
     const verificacionNueva = await bcrypt.compare(contraNueva, nuevoHash);
     console.log('¿La contraseña nueva coincide con el hash recién generado?', verificacionNueva ? 'SÍ ✅' : 'NO ❌');
     
@@ -57,7 +57,7 @@ async function diagnosticoDeContraseñas() {
   } catch (error) {
     console.error('Error en diagnóstico:', error);
   } finally {
-    // Cerrar la conexión
+    
     pool.end();
   }
 }

@@ -21,10 +21,10 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
   
-  // Usar el hook de autenticación
+ 
   const { isAuthenticated, user, logout, loading } = useAuth()
   
-  // No renderizar el header en las páginas de login y registro
+  
   if (pathname === "/login" || pathname === "/registro") {
     return null
   }
@@ -108,16 +108,25 @@ export default function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <>
+            <nav className="flex items-center gap-2">
               <Link href="/login">
-                <Button variant="outline" size="sm">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-[#5b36f2] text-[#5b36f2] hover:bg-[#f0edfe] transition-colors"
+                >
                   Iniciar Sesión
                 </Button>
               </Link>
               <Link href="/registro">
-                <Button size="sm">Registrarse</Button>
+                <Button
+                  size="sm"
+                  className="bg-[#5b36f2] hover:bg-[#4a2bd0] text-white transition-colors"
+                >
+                  Registrarse
+                </Button>
               </Link>
-            </>
+            </nav>
           )}
         </div>
         
@@ -196,16 +205,25 @@ export default function Header() {
                   </Button>
                 </>
               ) : (
-                <>
+                <nav className="flex items-center gap-2">
                   <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="outline" className="w-full">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-[#5b36f2] text-[#5b36f2] hover:bg-[#f0edfe] transition-colors"
+                    >
                       Iniciar Sesión
                     </Button>
                   </Link>
                   <Link href="/registro" onClick={() => setIsMenuOpen(false)}>
-                    <Button className="w-full">Registrarse</Button>
+                    <Button
+                      size="sm"
+                      className="bg-[#5b36f2] hover:bg-[#4a2bd0] text-white transition-colors"
+                    >
+                      Registrarse
+                    </Button>
                   </Link>
-                </>
+                </nav>
               )}
             </div>
           </nav>

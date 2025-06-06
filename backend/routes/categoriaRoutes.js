@@ -1,10 +1,15 @@
 const express = require('express');
 const categoriaController = require('../controllers/categoriaController');
+const { verificarToken } = require('../middlewares/auth');
 
 const router = express.Router();
 
-// Rutas de categorías
+// Rutas públicas
 router.get('/', categoriaController.getAllCategorias);
-router.get('/:id', categoriaController.getCategoriaById);
+
+// Rutas protegidas (solo admin)
+router.post('/', verificarToken, categoriaController.createCategoria);
+router.put('/:id', verificarToken, categoriaController.updateCategoria);
+router.delete('/:id', verificarToken, categoriaController.deleteCategoria);
 
 module.exports = router;

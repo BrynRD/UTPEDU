@@ -27,9 +27,23 @@ import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useRouter } from "next/navigation"
+import api, { recursoService } from "@/lib/api"
+
+interface Recurso {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  archivo_url: string;
+  categoria_id: number;
+  usuario_id: number;
+  fecha_creacion: string; // o Date si se parsea
+  // Añadir otras propiedades si el backend las devuelve en getAllRecursos, como nombre de categoría/usuario
+  categoria_nombre?: string;
+  usuario_nombre?: string; // o un objeto de usuario parcial
+}
 
 export default function StudentDashboard() {
-  // Estado para almacenar los datos completos del usuario
   const [userData, setUserData] = useState({
     nombre: "",
     apellido: "",
@@ -42,7 +56,6 @@ export default function StudentDashboard() {
     creditosAcumulados: 0
   })
 
-  // Estado para el formulario editable
   const [formData, setFormData] = useState({
     nombre: "",
     apellido: "",
@@ -52,7 +65,6 @@ export default function StudentDashboard() {
     intereses: ""
   })
 
-  // Estados para manejo de cambio de contraseña
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordData, setPasswordData] = useState({
     passwordActual: "",
@@ -61,7 +73,9 @@ export default function StudentDashboard() {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  // Estados para manejo de UI
+  const [materiales, setMateriales] = useState<Recurso[]>([]);
+  const [isLoadingMateriales, setIsLoadingMateriales] = useState(true);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -69,7 +83,6 @@ export default function StudentDashboard() {
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [updateMessage, setUpdateMessage] = useState("");
 
-  // Datos simulados para el dashboard del estudiante
   const [cursosActuales] = useState([
     { id: 1, nombre: "Matemática Discreta", profesor: "Dr. Carlos Rodríguez", creditos: 4, progreso: 65 },
     { id: 2, nombre: "Programación Orientada a Objetos", profesor: "Ing. Laura Méndez", creditos: 5, progreso: 78 },
@@ -82,23 +95,24 @@ export default function StudentDashboard() {
     { id: 3, titulo: "Laboratorio Virtual - Procesadores", tipo: "ZIP", fecha: "20/04/2025", curso: "Arquitectura de Computadoras", tamaño: "15.8 MB" }
   ]);
 
-  // Obtener los datos del usuario al cargar la página
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const router = useRouter();
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        // Obtener los datos del usuario desde localStorage
         const userDataFromStorage = authService.getUserData();
         console.log("Datos iniciales de usuario obtenidos:", userDataFromStorage);
         
         if (userDataFromStorage && userDataFromStorage.usuario) {
           const usuario = userDataFromStorage.usuario;
           
-          // Intentar obtener datos actualizados desde la API
           try {
             const apiUserData = await userService.getPerfil();
             console.log("Datos de usuario obtenidos de la API:", apiUserData);
             
-            // Si hay datos de la API, usarlos
             if (apiUserData && apiUserData.usuario) {
               usuario.carrera = apiUserData.usuario.carrera || "";
               usuario.ciclo = apiUserData.usuario.ciclo || "";
@@ -108,10 +122,8 @@ export default function StudentDashboard() {
             }
           } catch (apiError) {
             console.error("No se pudieron obtener datos actualizados de la API:", apiError);
-            // Seguimos con los datos del localStorage
           }
           
-          // Actualizar todos los estados con los datos disponibles
           setUserData({
             nombre: usuario.nombre || "",
             apellido: usuario.apellido || "",
@@ -145,20 +157,49 @@ export default function StudentDashboard() {
     };
 
     fetchUserData();
-  }, []);
 
-  // Manejar cambios en campos de texto
+    console.log('useEffect triggered with:', { searchTerm, currentPage });
+
+    const handler = setTimeout(async () => {
+      try {
+        setIsLoadingMateriales(true);
+        console.log('Fetching materiales with params directly in useEffect:', { searchTerm, currentPage });
+        const response = await recursoService.getAllRecursos(searchTerm, currentPage, 7);
+        console.log('Frontend useEffect: Received', {
+          recursosCount: response.recursos.length,
+          totalRecursos: response.totalRecursos,
+          currentPage: response.currentPage,
+          totalPages: response.totalPages,
+          firstRecurso: response.recursos[0]?.titulo,
+          lastRecurso: response.recursos[response.recursos.length - 1]?.titulo
+        });
+        setMateriales(response.recursos);
+        setTotalPages(response.totalPages);
+        setCurrentPage(response.currentPage);
+      } catch (error) {
+        console.error('Error al obtener materiales en useEffect:', error);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los materiales. Por favor, intenta nuevamente.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingMateriales(false);
+      }
+    }, 100);
+
+    return () => clearTimeout(handler);
+  }, [searchTerm, currentPage]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Manejar cambios en selects
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Validar el formulario antes de guardar
   const validateForm = () => {
     const errors = [];
     
@@ -182,18 +223,15 @@ export default function StudentDashboard() {
     return true;
   };
 
-  // Guardar cambios en el perfil
   const handleSaveChanges = async () => {
     if (!validateForm()) return;
     
     try {
       setIsSaving(true);
       
-      // Capturar los valores anteriores para comparar cambios
       const oldNombre = userData.nombre;
       const oldApellido = userData.apellido;
       
-      // Preparar datos para enviar a la API
       const datosActualizados = {
         nombre: formData.nombre,
         apellido: formData.apellido,
@@ -205,11 +243,9 @@ export default function StudentDashboard() {
       
       console.log("Enviando datos actualizados:", datosActualizados);
       
-      // Llamada a la API para actualizar los datos del usuario
       const response = await userService.updatePerfil(datosActualizados);
       console.log("Respuesta de actualización:", response);
       
-      // Actualizar el estado local con los datos actualizados
       setUserData(prevData => ({
         ...prevData,
         nombre: formData.nombre,
@@ -218,7 +254,6 @@ export default function StudentDashboard() {
         ciclo: formData.ciclo
       }));
       
-      // Actualizar datos en localStorage para mantener sesión actualizada
       const currentUserData = authService.getUserData();
       if (currentUserData && currentUserData.usuario && currentUserData.token) {
         const updatedUser = {
@@ -231,7 +266,6 @@ export default function StudentDashboard() {
         authService.setUserData(currentUserData.token, updatedUser);
       }
       
-      // Construir un mensaje detallado sobre los cambios realizados
       let cambiosRealizados = [];
       
       if (oldNombre !== formData.nombre) {
@@ -248,14 +282,12 @@ export default function StudentDashboard() {
       
       setUpdateMessage(mensajeCambios);
       
-      // Mostrar notificación de éxito con información detallada
       toast({
         title: "Perfil actualizado",
         description: mensajeCambios,
         variant: "default",
       });
       
-      // Mostrar feedback visual en la UI
       setUpdateSuccess(true);
       setTimeout(() => {
         setUpdateSuccess(false);
@@ -273,7 +305,6 @@ export default function StudentDashboard() {
     }
   };
 
-  // Cambiar contraseña
   const handlePasswordChange = async () => {
     // Validaciones
     if (!passwordData.passwordActual) {
@@ -294,32 +325,19 @@ export default function StudentDashboard() {
     try {
       setIsChangingPassword(true);
       
-      // Obtener el token del usuario desde el servicio de autenticación
       const userData = authService.getUserData();
       if (!userData || !userData.token) {
         throw new Error('No hay sesión activa');
       }
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/usuarios/cambiar-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userData.token}`
-        },
-        body: JSON.stringify({
-          passwordActual: passwordData.passwordActual,
-          passwordNuevo: passwordData.passwordNuevo,
-          confirmarPassword: passwordData.confirmarPassword
-        })
+      const response = await api.post('/usuarios/cambiar-password', {
+        passwordActual: passwordData.passwordActual,
+        passwordNuevo: passwordData.passwordNuevo,
+        confirmarPassword: passwordData.confirmarPassword
       });
       
-      const data = await response.json();
+      const data = response.data;
       
-      if (!response.ok) {
-        throw new Error(data.mensaje || 'Error al cambiar contraseña');
-      }
-      
-      // Limpiar formulario
       setPasswordData({
         passwordActual: "",
         passwordNuevo: "",
@@ -347,7 +365,120 @@ export default function StudentDashboard() {
     }
   };
 
-  // Mostrar mensaje de carga mientras se obtienen los datos
+  const handleDownload = async (recursoId: number) => {
+    try {
+      console.log('Frontend Student Download: Initiating download for resource ID:', recursoId);
+      console.log('Frontend Student Download: Fetching from URL:', `${process.env.NEXT_PUBLIC_API_URL}/recursos/download/${recursoId}`);
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/recursos/download/${recursoId}`, {
+        method: 'GET',
+        // No need for Authorization header here anymore, as we removed auth middleware in backend/app.js for this route
+        // headers: {
+        //   'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        // }
+      });
+
+      console.log('Frontend Student Download: Response status', response.status);
+      console.log('Frontend Student Download: Response ok', response.ok);
+      console.log('Frontend Student Download: Response headers', [...response.headers.entries()]);
+
+      if (!response.ok) {
+        console.error('Frontend Student Download: Response not OK.', response.status, response.statusText);
+        // If response is not ok, try to parse JSON for an error message
+        try {
+            const errorData = await response.json();
+            console.error('Frontend Student Download: Error data from backend:', errorData);
+            throw new Error(errorData.mensaje || `Error del servidor: ${response.status}`);
+        } catch (jsonError) {
+            // If JSON parsing fails, throw a generic error with status text
+            console.error('Frontend Student Download: Failed to parse error JSON:', jsonError);
+            throw new Error(`Error al descargar el recurso: ${response.statusText || response.status}`);
+        }
+      }
+
+      // Get filename from Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      console.log('Frontend Student Download: Received Content-Disposition header:', contentDisposition);
+      let filename = 'downloaded-file';
+      if (contentDisposition) {
+        // Manual extraction of filename, avoiding regex issues
+        const filenamePrefix = 'filename="';
+        const startIndex = contentDisposition.indexOf(filenamePrefix);
+        
+        if (startIndex !== -1) {
+          let extractedFilename = contentDisposition.substring(startIndex + filenamePrefix.length);
+          
+          // Remove trailing quote if present
+          if (extractedFilename.endsWith('"')) {
+            extractedFilename = extractedFilename.substring(0, extractedFilename.length - 1);
+          }
+          
+          // Remove trailing semicolon if present (in case of filename="...";)
+          if (extractedFilename.endsWith(';')) {
+             extractedFilename = extractedFilename.substring(0, extractedFilename.length - 1);
+          }
+          
+          filename = extractedFilename;
+          console.log('Frontend Student Download: Manually extracted filename:', filename);
+        } else {
+            // Fallback for cases without quotes (less common but possible)
+            const basicFilenamePrefix = 'filename=';
+            const basicStartIndex = contentDisposition.indexOf(basicFilenamePrefix);
+            if (basicStartIndex !== -1) {
+                 let extractedFilename = contentDisposition.substring(basicStartIndex + basicFilenamePrefix.length);
+                 // Remove trailing semicolon if present
+                 if (extractedFilename.endsWith(';')) {
+                    extractedFilename = extractedFilename.substring(0, extractedFilename.length - 1);
+                 }
+                 filename = extractedFilename;
+                 console.log('Frontend Student Download: Manually extracted filename (no quotes):', filename);
+            }
+        }
+      }
+      console.log('Frontend Student Download: Determined filename:', filename);
+
+      // Get the file content as a Blob
+      const blob = await response.blob();
+
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary anchor element and trigger the download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename; // Set the suggested filename
+      document.body.appendChild(a);
+      a.click();
+
+      // Clean up the temporary URL and anchor element
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Descarga iniciada",
+        description: "El archivo debería empezar a descargarse pronto.",
+      });
+
+    } catch (error) {
+      console.error('Error al descargar:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "No se pudo descargar el recurso. Intenta nuevamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to first page on new search
+  };
+
+  const handlePageChange = (newPage: number) => {
+    console.log('Changing to page:', newPage);
+    setCurrentPage(newPage);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -359,7 +490,6 @@ export default function StudentDashboard() {
     )
   }
 
-  // Mostrar mensaje de error si ocurre algún problema
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -390,10 +520,6 @@ export default function StudentDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button>
-            <Search className="mr-2 h-4 w-4" />
-            Buscar Recursos
-          </Button>
           <Button variant="outline">
             <Download className="mr-2 h-4 w-4" />
             Mis Descargas
@@ -402,11 +528,9 @@ export default function StudentDashboard() {
       </div>
 
       <Tabs defaultValue="resumen" className="space-y-6">
-        <TabsList className="grid grid-cols-3 md:grid-cols-5 lg:w-[600px]">
+        <TabsList className="grid grid-cols-3 md:grid-cols-3 lg:w-[600px]">
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
-          <TabsTrigger value="cursos">Mis Cursos</TabsTrigger>
-          <TabsTrigger value="materiales">Materiales</TabsTrigger>
-          <TabsTrigger value="horario">Horario</TabsTrigger>
+          <TabsTrigger value="recursos">Recursos</TabsTrigger>
           <TabsTrigger value="perfil">Mi Perfil</TabsTrigger>
         </TabsList>
 
@@ -498,25 +622,82 @@ export default function StudentDashboard() {
                 <CardDescription>Últimos recursos disponibles</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {materialesRecientes.map((material) => (
-                    <div key={material.id} className="flex items-center p-2 hover:bg-gray-50 rounded-md transition-colors">
-                      <div className="h-10 w-10 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center mr-3">
-                        <span className="font-medium text-xs">{material.tipo}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{material.titulo}</p>
-                        <p className="text-xs text-gray-500">{material.curso} • {material.tamaño}</p>
-                      </div>
-                      <Button variant="ghost" size="icon" className="ml-2">
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                <div className="flex justify-between items-center mb-6">
+                  <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input 
+                      placeholder="Buscar materiales..." 
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Select defaultValue="todos">
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filtrar por curso" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos los cursos</SelectItem>
+                        {cursosActuales.map(curso => (
+                          <SelectItem key={curso.id} value={`curso-${curso.id}`}>
+                            {curso.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <Button variant="outline" className="w-full mt-4">
-                  Ver todos los materiales
-                </Button>
+
+                <div className="space-y-1">
+                  <div className="bg-gray-50 p-3 rounded-t-md">
+                    <div className="grid grid-cols-12 text-sm font-medium text-gray-500">
+                      <div className="col-span-6">Nombre</div>
+                      <div className="col-span-3">Curso</div>
+                      <div className="col-span-2">Fecha</div>
+                      <div className="col-span-1 text-right">Acción</div>
+                    </div>
+                  </div>
+
+                  {isLoadingMateriales ? (
+                    <div className="text-center p-6">
+                      <div className="w-10 h-10 border-4 border-t-[#5b36f2] border-r-transparent border-l-transparent border-b-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                      <p className="text-sm text-gray-600">Cargando materiales...</p>
+                    </div>
+                  ) : materiales.length === 0 ? (
+                    <div className="text-center p-6 text-gray-600">
+                      No hay materiales disponibles en este momento.
+                    </div>
+                  ) : (
+                    materiales.map((material, index) => (
+                      <div 
+                        key={material.id} 
+                        className={`grid grid-cols-12 text-sm p-3 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                      >
+                        <div className="col-span-6 flex items-center gap-2">
+                          <div className={`h-8 w-8 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center`}>
+                            <span className="font-medium text-xs">{/* Material Type/Icon */}</span>
+                          </div>
+                          <span className="font-medium">{material.titulo}</span>
+                        </div>
+                        <div className="col-span-3 flex items-center">{material.categoria_nombre || `Cat ID: ${material.categoria_id}`}</div>
+                        <div className="col-span-2 flex items-center">{new Date(material.fecha_creacion).toLocaleDateString()}</div>
+                        <div className="col-span-1 flex justify-end items-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownload(material.id)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Descargar
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex justify-center mt-6">
+                  <Button variant="outline">Cargar más materiales</Button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -560,316 +741,75 @@ export default function StudentDashboard() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="cursos" className="space-y-6">
-  <h2 className="text-xl font-bold mb-2">2025 - Ciclo 1 Marzo PREG (001) (Actual)</h2>
-  
-  {/* Reduced gap and made the grid denser */}
-  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-    {/* Curso 1: Desarrollo Web Integrado */}
-    <div className="bg-white rounded shadow-sm overflow-hidden">
-      <div className="relative">
-        {/* Reduced height from h-48 to h-32 */}
-        <div className="h-32 bg-pink-100 overflow-hidden">
-          <img 
-            src="/cursosp.png" 
-            alt="Desarrollo Web" 
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-          <div className="absolute top-0 left-0 w-full h-full" style={{ 
-            backgroundImage: "url('/cursosp.png')", 
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          }}></div>
-        </div>
-        <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-          40%
-        </div>
-      </div>
-      {/* Reduced padding */}
-      <div className="p-3">
-        {/* Smaller font size */}
-        <h3 className="font-bold text-base">Desarrollo Web Integrado</h3>
-        <p className="text-xs text-gray-600">25084 - Presencial</p>
-        {/* Reduced margin and avatar size */}
-        <div className="mt-2 flex items-center">
-          <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-1.5">
-            <span className="font-bold text-blue-800 text-xs">MA</span>
-          </div>
-          <span className="text-xs">Miguel Angel Huerta Rojas</span>
-        </div>
-      </div>
-    </div>
-
-    {/* Curso 2: Diseño de Productos y Servicios */}
-    <div className="bg-white rounded shadow-sm overflow-hidden">
-      <div className="relative">
-        <div className="h-32 bg-pink-100 overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full" style={{ 
-            backgroundImage: "url('/cursosp.png')", 
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          }}></div>
-        </div>
-        <div className="absolute top-2 right-2 bg-orange-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-          30%
-        </div>
-      </div>
-      <div className="p-3">
-        <h3 className="font-bold text-base">Diseño de Productos y Servicios</h3>
-        <p className="text-xs text-gray-600">25106 - Presencial</p>
-        <div className="mt-2 flex items-center">
-          <div className="h-6 w-6 rounded-full bg-orange-100 flex items-center justify-center mr-1.5">
-            <span className="font-bold text-orange-800 text-xs">JH</span>
-          </div>
-          <span className="text-xs">Jorge Homero Pozo Chumacero</span>
-        </div>
-      </div>
-    </div>
-
-    {/* Curso 3: Herramientas de Desarrollo */}
-    <div className="bg-white rounded shadow-sm overflow-hidden">
-      <div className="relative">
-        <div className="h-32 bg-pink-100 overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full" style={{ 
-            backgroundImage: "url('/cursosp.png')", 
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          }}></div>
-        </div>
-        <div className="absolute top-2 right-2 bg-amber-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-          55%
-        </div>
-      </div>
-      <div className="p-3">
-        <h3 className="font-bold text-base">Herramientas de Desarrollo</h3>
-        <p className="text-xs text-gray-600">25083 - Presencial</p>
-        <div className="mt-2 flex items-center">
-          <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center mr-1.5">
-            <span className="font-bold text-green-800 text-xs">RS</span>
-          </div>
-          <span className="text-xs">Remigio Santos Huarcaya A.</span>
-        </div>
-      </div>
-    </div>
-
-    {/* Curso 4: Seguridad Informatica */}
-    <div className="bg-white rounded shadow-sm overflow-hidden">
-      <div className="relative">
-        <div className="h-32 bg-pink-100 overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full" style={{ 
-            backgroundImage: "url('/cursosv.png')", 
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          }}></div>
-        </div>
-        <div className="absolute top-2 right-2 bg-pink-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-          5%
-        </div>
-      </div>
-      <div className="p-3">
-        <h3 className="font-bold text-base">Seguridad Informatica</h3>
-        <p className="text-xs text-gray-600">18139 - Virtual 24/7</p>
-        <div className="mt-2 flex items-center">
-          <div className="h-6 w-6 rounded-full bg-pink-100 flex items-center justify-center mr-1.5">
-            <span className="font-bold text-pink-800 text-xs">JM</span>
-          </div>
-          <span className="text-xs">Jacquelin Mariela Criollo L.</span>
-        </div>
-      </div>
-    </div>
-
-    {/* Curso 5: Lenguajes de Programación */}
-    <div className="bg-white rounded shadow-sm overflow-hidden">
-      <div className="relative">
-        <div className="h-32 bg-pink-100 overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full" style={{ 
-            backgroundImage: "url('/cursosp.png')", 
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          }}></div>
-        </div>
-        <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-          28%
-        </div>
-      </div>
-      <div className="p-3">
-        <h3 className="font-bold text-base">Lenguajes de Programación</h3>
-        <p className="text-xs text-gray-600">25086 - Presencial</p>
-        <div className="mt-2 flex items-center">
-          <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-1.5">
-            <span className="font-bold text-blue-800 text-xs">MA</span>
-          </div>
-          <span className="text-xs">Miguel Angel Huerta Rojas</span>
-        </div>
-      </div>
-    </div>
-
-    {/* Curso 6: Liderazgo y Gestión de Equipos */}
-    <div className="bg-white rounded shadow-sm overflow-hidden">
-      <div className="relative">
-        <div className="h-32 bg-pink-100 overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full" style={{ 
-            backgroundImage: "url('/cursosp.png')", 
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          }}></div>
-        </div>
-        <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-          8%
-        </div>
-      </div>
-      <div className="p-3">
-        <h3 className="font-bold text-base">Liderazgo y Gestión de Equipos</h3>
-        <p className="text-xs text-gray-600">25082 - Presencial</p>
-        <div className="mt-2 flex items-center">
-          <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center mr-1.5">
-            <span className="font-bold text-purple-800 text-xs">CA</span>
-          </div>
-          <span className="text-xs">Carlos Alberto Rios Vasquez</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</TabsContent>
-
-        <TabsContent value="materiales" className="space-y-6">
+        <TabsContent value="recursos" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Materiales de Estudio</CardTitle>
-              <CardDescription>Recursos disponibles para tus cursos</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Recursos Educativos Disponibles</CardTitle>
+                <CardDescription>Explora y descarga materiales subidos por la comunidad.</CardDescription>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="text"
+                  placeholder="Buscar recursos..."
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  className="w-64"
+                />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center mb-6">
-                <div className="relative w-full max-w-sm">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input 
-                    placeholder="Buscar materiales..." 
-                    className="pl-9"
-                  />
+              {isLoadingMateriales ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                 </div>
-                <div className="flex items-center gap-2 ml-4">
-                  <Select defaultValue="todos">
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Filtrar por curso" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos los cursos</SelectItem>
-                      {cursosActuales.map(curso => (
-                        <SelectItem key={curso.id} value={`curso-${curso.id}`}>
-                          {curso.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              ) : materiales.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <FileText className="h-16 w-16 text-gray-300 mb-4" />
+                  <h3 className="text-xl font-medium">No se encontraron recursos</h3>
+                  <p className="text-sm text-gray-500 mt-2 mb-6 max-w-md">
+                    Intenta con otro término de búsqueda o sube un nuevo recurso.
+                  </p>
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="bg-gray-50 p-3 rounded-t-md">
-                  <div className="grid grid-cols-12 text-sm font-medium text-gray-500">
-                    <div className="col-span-6">Nombre</div>
-                    <div className="col-span-3">Curso</div>
-                    <div className="col-span-2">Fecha</div>
-                    <div className="col-span-1 text-right">Acción</div>
-                  </div>
-                </div>
-
-                {materialesRecientes.map((material, index) => (
-                  <div 
-                    key={material.id} 
-                    className={`grid grid-cols-12 text-sm p-3 hover:bg-gray-50 ${
-                      index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="col-span-6 flex items-center gap-2">
-                      <div className={`h-8 w-8 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center`}>
-                        <span className="font-medium text-xs">{material.tipo}</span>
+              ) : (
+                <div className="space-y-4">
+                  {materiales.map((material) => (
+                    <Card key={material.id} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          {renderFileIcon(material.archivo_url)}
+                          <div>
+                            <h4 className="font-medium">{material.titulo}</h4>
+                            <p className="text-sm text-gray-500">{material.categoria_nombre} • Subido el {new Date(material.fecha_creacion).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <Button onClick={() => handleDownload(material.id)}>Descargar</Button>
                       </div>
-                      <span className="font-medium">{material.titulo}</span>
-                    </div>
-                    <div className="col-span-3 flex items-center">{material.curso}</div>
-                    <div className="col-span-2 flex items-center">{material.fecha}</div>
-                    <div className="col-span-1 flex justify-end items-center">
-                      <Button size="icon" variant="ghost">
-                        <Download className="h-4 w-4" />
+                    </Card>
+                  ))}
+                  <div className="flex justify-center mt-4">
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      <span className="flex items-center px-4">
+                        Página {currentPage} de {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Siguiente
                       </Button>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="flex justify-center mt-6">
-                <Button variant="outline">Cargar más materiales</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="horario" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Mi Horario de Clases</CardTitle>
-              <CardDescription>Semestre 2025-I</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <div className="min-w-[800px]">
-                  {/* Horario semanal simplificado */}
-                  <div className="grid grid-cols-6 gap-2">
-                    <div className="p-2 text-center font-medium bg-gray-100 rounded-md">Hora</div>
-                    <div className="p-2 text-center font-medium bg-gray-100 rounded-md">Lunes</div>
-                    <div className="p-2 text-center font-medium bg-gray-100 rounded-md">Martes</div>
-                    <div className="p-2 text-center font-medium bg-gray-100 rounded-md">Miércoles</div>
-                    <div className="p-2 text-center font-medium bg-gray-100 rounded-md">Jueves</div>
-                    <div className="p-2 text-center font-medium bg-gray-100 rounded-md">Viernes</div>
-
-                    {/* 8-10 AM */}
-                    <div className="p-2 text-center text-sm border-t">8:00 - 10:00</div>
-                    <div className="p-2 bg-blue-100 text-blue-800 rounded-md text-xs">
-                      <p className="font-medium">Matemática Discreta</p>
-                      <p>Aula: B202</p>
-                    </div>
-                    <div className="p-2"></div>
-                    <div className="p-2 bg-blue-100 text-blue-800 rounded-md text-xs">
-                      <p className="font-medium">Matemática Discreta</p>
-                      <p>Aula: B202</p>
-                    </div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-
-                    {/* 10-12 PM */}
-                    <div className="p-2 text-center text-sm border-t">10:00 - 12:00</div>
-                    <div className="p-2"></div>
-                    <div className="p-2 bg-green-100 text-green-800 rounded-md text-xs">
-                      <p className="font-medium">Arquitectura de Computadoras</p>
-                      <p>Aula: Lab-3</p>
-                    </div>
-                    <div className="p-2"></div>
-                    <div className="p-2 bg-green-100 text-green-800 rounded-md text-xs">
-                      <p className="font-medium">Arquitectura de Computadoras</p>
-                      <p>Aula: Lab-3</p>
-                    </div>
-                    <div className="p-2"></div>
-
-                    {/* 1-3 PM */}
-                    <div className="p-2 text-center text-sm border-t">13:00 - 15:00</div>
-                    <div className="p-2 bg-purple-100 text-purple-800 rounded-md text-xs">
-                      <p className="font-medium">Programación Orientada a Objetos</p>
-                      <p>Aula: Lab-5</p>
-                    </div>
-                    <div className="p-2"></div>
-                    <div className="p-2 bg-purple-100 text-purple-800 rounded-md text-xs">
-                      <p className="font-medium">Programación Orientada a Objetos</p>
-                      <p>Aula: Lab-5</p>
-                    </div>
-                    <div className="p-2"></div>
-                    <div className="p-2"></div>
-                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1025,12 +965,10 @@ export default function StudentDashboard() {
                 </div>
               </div>
               
-              {/* Botones de acción */}
               <div className="flex justify-end gap-2">
                 <Button 
                   variant="outline" 
                   onClick={() => {
-                    // Restablecer el formulario a los valores actuales
                     setFormData({
                       nombre: userData.nombre,
                       apellido: userData.apellido,
@@ -1061,7 +999,6 @@ export default function StudentDashboard() {
                 </Button>
               </div>
               
-              {/* Sección de cambio de contraseña */}
               <div className="mt-8 pt-6 border-t">
                 <h3 className="text-lg font-medium mb-4">Seguridad</h3>
                 
@@ -1137,4 +1074,12 @@ export default function StudentDashboard() {
 
 function Label({ children }: { children: React.ReactNode }) {
   return <div className="text-sm font-medium">{children}</div>
+}
+
+// Función auxiliar para renderizar iconos de archivo
+function renderFileIcon(archivoUrl: string) {
+  const extension = archivoUrl.split('.').pop()?.toLowerCase();
+  // Implementar lógica para renderizar diferentes iconos basados en la extensión
+  // Por ahora, un icono genérico de archivo
+  return <FileText className="h-6 w-6 text-blue-500" />;
 }

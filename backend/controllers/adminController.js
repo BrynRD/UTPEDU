@@ -5,11 +5,24 @@ const { pool } = require('../config/db');
 
 exports.getUsuarios = async (req, res) => {
     try {
-      const usuarios = await Usuario.findAll();
-      
-      
-      console.log('Usuarios encontrados con roles:', usuarios.map(u => ({id: u.id, nombre: u.nombre, rol: u.rol})));
-      
+      // Read pagination parameters from query string
+      const page = parseInt(req.query.page) || 1; // Default to page 1
+      const limit = parseInt(req.query.limit) || 15; // Default to 15 users per page
+      const offset = (page - 1) * limit;
+
+      console.log(`Consultando usuarios con paginación: página ${page}, límite ${limit}, offset ${offset}`);
+
+      // Get paginated users
+      const usuarios = await Usuario.findAll(limit, offset);
+
+      // Get total number of users (for pagination info)
+      const [totalUsersResult] = await pool.query('SELECT COUNT(*) as total FROM usuarios');
+      const totalUsuarios = totalUsersResult[0].total;
+
+      console.log('Total usuarios encontrados (sin paginación):', totalUsuarios);
+
+      // console.log('Usuarios encontrados con roles:', usuarios.map(u => ({id: u.id, nombre: u.nombre, rol: u.rol})));
+
       res.status(200).json({
         usuarios: usuarios.map(usuario => ({
           id: usuario.id,
@@ -47,7 +60,6 @@ exports.getUsuario = async (req, res) => {
       rol: usuario.rol,
       codigo_institucional: usuario.codigo_institucional || '',
       institucion: usuario.institucion,
-      nivelEducativo: usuario.nivel_educativo,
       areaEspecialidad: usuario.area_especialidad,
       createdAt: usuario.fecha_registro,
       activo: usuario.activo === 1
@@ -298,28 +310,6 @@ exports.getRecursosPopulares = async (req, res) => {
           nombre: "Carlos",
           apellido: "Rodríguez"
         }
-      },
-      {
-        id: 2,
-        titulo: "Fundamentos de Matemáticas",
-        descargas: 95,
-        categoria: "Matemáticas",
-        autor: {
-          id: 3,
-          nombre: "Ana",
-          apellido: "García"
-        }
-      },
-      {
-        id: 3,
-        titulo: "Historia del Arte",
-        descargas: 87,
-        categoria: "Humanidades",
-        autor: {
-          id: 7,
-          nombre: "Laura",
-          apellido: "Martínez"
-        }
       }
     ];
     
@@ -327,5 +317,104 @@ exports.getRecursosPopulares = async (req, res) => {
   } catch (error) {
     console.error('Error al obtener recursos populares:', error);
     res.status(500).json({ error: 'Error al cargar los recursos populares' });
+  }
+};
+
+exports.changeUserPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ error: 'La nueva contraseña es requerida.' });
+    }
+
+    // Optional: Add more password validation logic here if needed
+
+    const success = await Usuario.updatePassword(id, newPassword);
+
+    if (success) {
+      res.status(200).json({ message: 'Contraseña de usuario actualizada con éxito.' });
+    } else {
+      // This might happen if the user ID is not found by updatePassword
+      res.status(404).json({ error: 'Usuario no encontrado o contraseña no actualizada.' });
+    }
+
+  } catch (error) {
+    console.error('Error al cambiar la contraseña del usuario por el administrador:', error);
+    res.status(500).json({ error: 'Error interno del servidor al cambiar la contraseña.' });
+  }
+};
+
+exports.createUsuario = async (req, res) => {
+  try {
+    const { nombre, apellido, email, password, rol, codigo_institucional, institucion, areaEspecialidad } = req.body;
+
+    // Basic validation
+    if (!nombre || !apellido || !email || !password || !rol || !codigo_institucional || !institucion || !areaEspecialidad) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios (nombre, apellido, email, password, rol, codigo_institucional, institucion, areaEspecialidad).' });
+    }
+
+    // Optional: Validate email format, password strength, etc.
+    // Optional: Check if email already exists
+    const existingUser = await Usuario.findByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ error: 'El email ya está registrado.' });
+    }
+
+    // Find the role ID based on the role name provided
+    const [roles] = await pool.query('SELECT id FROM roles WHERE LOWER(nombre) = LOWER(?)', [rol]);
+    if (roles.length === 0) {
+        return res.status(400).json({ error: 'Rol especificado no válido.' });
+    }
+    const rolId = roles[0].id;
+
+
+    const newUserId = await Usuario.create({
+      nombre,
+      apellido,
+      email,
+      password,
+      rolId,
+      codigo_institucional,
+      institucion,
+      areaEspecialidad: areaEspecialidad,
+    });
+
+    // Optionally fetch the created user to return it in the response
+    const createdUser = await Usuario.findById(newUserId);
+
+    res.status(201).json({
+      message: 'Usuario creado con éxito.',
+      usuario: createdUser // Return created user data (excluding password hash)
+    });
+
+  } catch (error) {
+    console.error('Error al crear usuario por el administrador:', error);
+    res.status(500).json({ error: error.message || 'Error interno del servidor al crear el usuario.' });
+  }
+};
+
+// Add Delete User Controller Function
+exports.deleteUsuario = async (req, res) => {
+  try {
+    const { id } = req.params; // Get user ID from route parameters
+    console.log('Solicitud para eliminar usuario con ID:', id);
+
+    // Optional: Add authorization check here to ensure only admins can delete
+    // if (req.usuario.rol !== 'admin') { /* return unauthorized error */ }
+
+    const success = await Usuario.delete(id);
+
+    if (success) {
+      res.status(200).json({ success: true, message: 'Usuario eliminado con éxito.' });
+    } else {
+      // This might happen if the user ID was not found
+      res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    }
+
+  } catch (error) {
+    console.error('Error al eliminar usuario por el administrador:', error);
+    res.status(500).json({ success: false, error: error.message || 'Error interno del servidor al eliminar el usuario.' });
   }
 };

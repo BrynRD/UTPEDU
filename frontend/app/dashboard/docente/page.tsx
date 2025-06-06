@@ -1,141 +1,399 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { SelectItem } from "@/components/ui/select"
-import { SelectContent } from "@/components/ui/select"
-import { SelectValue } from "@/components/ui/select"
-import { SelectTrigger } from "@/components/ui/select"
-import { Select } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, BookOpen, FileText, FolderPlus, Plus, Upload, User } from "lucide-react"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  FileText,
+  BookOpen,
+  User,
+  Upload,
+  FolderPlus,
+  Plus,
+  Pencil,
+  Trash,
+} from "lucide-react";
+import { Toaster } from "@/components/ui/toaster";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { authService, recursoService } from "@/lib/api";
+import { toast } from "@/components/ui/use-toast";
+import { useRouter } from "next/navigation";
+import { RecursoViewer } from "@/components/RecursoViewer";
 
-import { authService, userService } from "@/lib/api"
+interface Categoria {
+  id: number;
+  nombre: string;
+}
 
+interface Recurso {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  archivo_url: string;
+  categoria_id: number;
+  categoria_nombre: string;
+  fecha_creacion: string;
+  tipo_archivo?: string;
+  descargas: number;
+}
+
+interface EditFormData {
+    titulo: string;
+    descripcion: string;
+    categoria_id: number;
+}
+
+interface UploadFormData {
+    titulo: string;
+    descripcion: string;
+    categoria_id: number;
+    archivo: File | null;
+}
+
+interface StatsState {
+  totalRecursos: number;
+  totalDescargas: number;
+  recursosPopulares: Recurso[];
+}
 
 export default function DocenteDashboard() {
-  // Estado para almacenar los datos del usuario
+  // Datos de ejemplo - En una implementación real, estos vendrían de una API
   const [userData, setUserData] = useState({
-    nombre: "",
-    apellido: "",
-    email: "",
-    institucion: "Universidad Tecnológica del Perú",
-    codigoInstitucional: "",
-    rol: ""
-  })
+    nombre: "Carlos",
+    apellido: "Rodríguez",
+    email: "carlos.rodriguez@utp.edu.pe",
+    codigoInstitucional: "U20210123",
+    rol: "docente"
+  });
 
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [recursos, setRecursos] = useState<Recurso[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingResource, setEditingResource] = useState<Recurso | null>(null);
+  const [editFormData, setEditFormData] = useState<EditFormData>({
+    titulo: "",
+    descripcion: "",
+    categoria_id: 0
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
   const [formData, setFormData] = useState({
-    nombre: "",
-    apellido: ""
-  })
+    nombre: userData.nombre,
+    apellido: userData.apellido
+  });
 
-  // Obtener los datos del usuario al cargar la página
-  useEffect(() => {
-    const fetchUserData = () => {
-      try {
-        // Obtener los datos del usuario desde localStorage
-        const userData = authService.getUserData();
-        console.log("Datos de usuario obtenidos:", userData);
-        
-        if (userData && userData.usuario) {
-          const usuario = userData.usuario;
-          setUserData({
-            nombre: usuario.nombre || "",
-            apellido: usuario.apellido || "",
-            email: usuario.email || "",
-            institucion: "Universidad Tecnológica del Perú",
-            codigoInstitucional: usuario.codigo_institucional || "",
-            rol: usuario.rol || ""
-          })
-          
-          setFormData({
-            nombre: usuario.nombre || "",
-            apellido: usuario.apellido || ""
-          })
-        } else {
-          console.error("No hay datos de usuario disponibles");
-          setError("No se encontraron datos de usuario. Por favor inicie sesión nuevamente.")
-        }
-      } catch (err) {
-        console.error("Error al cargar los datos del usuario:", err)
-        setError("Error al cargar los datos del usuario. Por favor inicie sesión nuevamente.")
-      } finally {
-        setIsLoading(false)
-      }
+  const [activeTab, setActiveTab] = useState("resumen");
+
+  const [uploadFormData, setUploadFormData] = useState<UploadFormData>({
+    titulo: '',
+    descripcion: '',
+    categoria_id: 0,
+    archivo: null
+  });
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [stats, setStats] = useState<StatsState>({
+    totalRecursos: 0,
+    totalDescargas: 0,
+    recursosPopulares: []
+  });
+
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+
+  const [selectedRecurso, setSelectedRecurso] = useState<Recurso | null>(null);
+
+  const handleEdit = (recurso: Recurso) => {
+    setEditingResource(recurso);
+    setEditFormData({
+      titulo: recurso.titulo,
+      descripcion: recurso.descripcion || "",
+      categoria_id: recurso.categoria_id || 1
+    });
+    setShowEditForm(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    console.log("Eliminar recurso con ID:", id);
+     const confirmDelete = confirm('¿Estás seguro de que deseas eliminar este recurso?');
+    if (!confirmDelete) {
+      return;
     }
 
-    fetchUserData();
-  }, [])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSaveChanges = async () => {
     try {
-      // Aquí implementarías la lógica para guardar los cambios
-      console.log("Guardando cambios:", formData)
-      // const response = await apiService.updateProfile(formData)
-      // setUserData({ ...userData, ...formData })
-      alert("Cambios guardados correctamente")
+      await recursoService.deleteRecurso(id.toString());
+      toast({
+        title: "Éxito",
+        description: "Recurso eliminado correctamente.",
+      });
+      setRecursos(recursos.filter(recurso => recurso.id !== id));
     } catch (error) {
-      console.error("Error al guardar los cambios:", error)
-      alert("Error al guardar los cambios")
+      console.error('Error al eliminar recurso:', error);
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar el recurso. Intenta nuevamente.",
+        variant: "destructive",
+      });
     }
-  }
+  };
 
-  // Mostrar mensaje de carga mientras se obtienen los datos
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-t-[#5b36f2] border-r-transparent border-l-transparent border-b-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-lg">Cargando datos...</p>
-        </div>
-      </div>
-    )
-  }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
-  // Mostrar mensaje de error si ocurre algún problema
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center p-6 bg-red-50 rounded-lg max-w-md">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
-          <h2 className="text-xl font-bold mt-4">Error</h2>
-          <p className="mt-2">{error}</p>
-          <Button 
-            className="mt-4" 
-            onClick={() => window.location.href = "/login"}
-          >
-            Volver al inicio de sesión
-          </Button>
-        </div>
-      </div>
-    )
-  }
+  const handleSaveChanges = () => {
+    console.log("Guardar cambios de perfil:", formData);
+  };
+
+  const handleUpdateResource = async () => {
+      if (!editingResource) return;
+
+      if (!editFormData.titulo || !editFormData.descripcion || !editFormData.categoria_id) {
+          toast({
+              title: "Error",
+              description: "Por favor, completa todos los campos requeridos.",
+              variant: "destructive",
+          });
+          return;
+      }
+
+      try {
+          setIsUpdating(true);
+          await recursoService.updateRecurso(editingResource.id.toString(), {
+              titulo: editFormData.titulo,
+              descripcion: editFormData.descripcion,
+              categoriaId: editFormData.categoria_id,
+          });
+
+          toast({
+              title: "Éxito",
+              description: "Recurso actualizado correctamente.",
+          });
+
+          setRecursos(recursos.map(res => 
+              res.id === editingResource.id 
+              ? { ...res, ...editFormData, categoria_nombre: categorias.find(cat => cat.id === editFormData.categoria_id)?.nombre || '' } 
+              : res
+          ));
+
+          setShowEditForm(false);
+          setEditingResource(null);
+          setIsUpdating(false);
+
+      } catch (error) {
+          console.error('Error updating resource:', error);
+          toast({
+              title: "Error al actualizar",
+              description: "No se pudo actualizar el recurso. Intenta nuevamente.",
+              variant: "destructive",
+          });
+          setIsUpdating(false);
+      }
+  };
+
+  const handleUploadChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setUploadFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploadFormData(prev => ({
+        ...prev,
+        archivo: e.target.files![0]
+      }));
+    }
+  };
+
+  const handleCategoriaChange = (value: string) => {
+    setUploadFormData(prev => ({
+      ...prev,
+      categoria_id: parseInt(value)
+    }));
+  };
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!uploadFormData.titulo || !uploadFormData.descripcion || !uploadFormData.categoria_id || !uploadFormData.archivo) {
+      toast({
+        title: "Error",
+        description: "Por favor, completa todos los campos requeridos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append('titulo', uploadFormData.titulo);
+      formData.append('descripcion', uploadFormData.descripcion);
+      formData.append('categoriaId', uploadFormData.categoria_id.toString());
+      formData.append('archivo', uploadFormData.archivo);
+
+      await recursoService.createRecurso(formData);
+      
+      toast({
+        title: "Éxito",
+        description: "Recurso subido correctamente.",
+      });
+
+      // Limpiar el formulario
+      setUploadFormData({
+        titulo: '',
+        descripcion: '',
+        categoria_id: 0,
+        archivo: null
+      });
+
+      // Actualizar la lista de recursos
+      const recursosResponse: Recurso[] = await recursoService.getMisRecursos();
+      setRecursos(recursosResponse);
+
+      setActiveTab('recursos');
+
+      setStats({
+        totalRecursos: recursosResponse.length,
+        totalDescargas: recursosResponse.reduce((sum: number, recurso: Recurso) => sum + (recurso.descargas || 0), 0),
+        recursosPopulares: recursosResponse.slice().sort((a: Recurso, b: Recurso) => (b.descargas || 0) - (a.descargas || 0)).slice(0, 5) as Recurso[],
+      });
+    } catch (error) {
+      console.error('Error al subir recurso:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo subir el recurso. Intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log('DocenteDashboard useEffect running');
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          console.log('No hay token, redirigiendo al login...');
+          router.push('/login');
+          return;
+        }
+
+        // Fetch user data ONLY if token exists
+        if (token) {
+          const user = await authService.getUserData();
+          console.log('Fetched user data:', user.usuario);
+          setUserData(user.usuario);
+
+          const categoriasResponse = await recursoService.getAllCategorias();
+          setCategorias(categoriasResponse);
+
+          const recursosResponse: Recurso[] = await recursoService.getMisRecursos();
+          setRecursos(recursosResponse);
+
+          setStats({
+            totalRecursos: recursosResponse.length,
+            totalDescargas: recursosResponse.reduce((sum: number, recurso: Recurso) => sum + (recurso.descargas || 0), 0),
+            recursosPopulares: recursosResponse.slice().sort((a: Recurso, b: Recurso) => (b.descargas || 0) - (a.descargas || 0)).slice(0, 5) as Recurso[],
+          });
+        }
+      } catch (error: any) {
+        console.error("Error al cargar datos iniciales:", error);
+        
+        if (error.response?.status === 401) {
+          console.log('Sesión expirada, redirigiendo al login...');
+          router.push('/login');
+        } else {
+          toast({
+            title: "Error",
+            description: "No se pudieron cargar los datos. Por favor, intenta nuevamente.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [router, authService.checkAuth]);
+
+  const getFileIcon = (url: string) => {
+    const ext = url.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return <FileText className="h-6 w-6 text-red-500" />;
+      case 'doc':
+      case 'docx':
+        return <FileText className="h-6 w-6 text-blue-500" />;
+      case 'xls':
+      case 'xlsx':
+        return <FileText className="h-6 w-6 text-green-500" />;
+      case 'ppt':
+      case 'pptx':
+        return <FileText className="h-6 w-6 text-orange-500" />;
+      default:
+        return <FileText className="h-6 w-6 text-gray-500" />;
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   return (
     <div className="container mx-auto py-10 px-4">
+      {isLoading ? (
+        <div className="flex items-center justify-center h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+        </div>
+      ) : (
+        <>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {userData.rol === 'estudiante' 
-              ? "Dashboard de Estudiante" 
-              : "Dashboard de Docente"}
-          </h1>
+              <h1 className="text-3xl font-bold tracking-tight">Dashboard de Docente</h1>
           <p className="text-muted-foreground">
             Bienvenido(a) {userData.nombre} {userData.apellido}. Gestiona tus recursos y perfil.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button>
+              <Button onClick={() => setActiveTab('subir')}>
             <Upload className="mr-2 h-4 w-4" />
             Subir Recurso
           </Button>
@@ -146,7 +404,7 @@ export default function DocenteDashboard() {
         </div>
       </div>
 
-      <Tabs defaultValue="resumen" className="space-y-6">
+          <Tabs defaultValue="resumen" className="space-y-6" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-3 md:grid-cols-5 lg:w-[600px]">
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
           <TabsTrigger value="recursos">Mis Recursos</TabsTrigger>
@@ -163,8 +421,10 @@ export default function DocenteDashboard() {
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
-                <p className="text-xs text-muted-foreground">Empieza a compartir recursos</p>
+                    <div className="text-2xl font-bold">{stats.totalRecursos}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {stats.totalRecursos === 0 ? 'Empieza a compartir recursos' : 'Recursos compartidos'}
+                    </p>
               </CardContent>
             </Card>
             <Card>
@@ -194,8 +454,10 @@ export default function DocenteDashboard() {
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
-                <p className="text-xs text-muted-foreground">Sin descargas aún</p>
+                    <div className="text-2xl font-bold">{stats.totalDescargas}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {stats.totalDescargas === 0 ? 'Sin descargas aún' : 'Descargas totales'}
+                    </p>
               </CardContent>
             </Card>
             <Card>
@@ -224,18 +486,37 @@ export default function DocenteDashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
             <Card className="col-span-4">
               <CardHeader>
-                <CardTitle>Recursos Disponibles</CardTitle>
-                <CardDescription>Explora recursos compartidos por otros usuarios</CardDescription>
+                    <CardTitle>Recursos Populares</CardTitle>
+                    <CardDescription>Los recursos más descargados</CardDescription>
               </CardHeader>
               <CardContent>
+                    {stats.recursosPopulares.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <FileText className="h-12 w-12 text-gray-300 mb-4" />
-                  <h3 className="text-lg font-medium">No hay recursos disponibles</h3>
+                        <h3 className="text-lg font-medium">No hay recursos populares</h3>
                   <p className="text-sm text-gray-500 mt-1 mb-4">
-                    Sé el primero en compartir recursos con la comunidad UTP
-                  </p>
-                  <Button>Subir mi primer recurso</Button>
+                          Sube recursos para verlos aquí
+                        </p>
+                        <Button onClick={() => setActiveTab('subir')}>Subir Recurso</Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {(stats.recursosPopulares as Recurso[]).map((recurso: Recurso) => (
+                          <div key={recurso.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center space-x-4">
+                              {getFileIcon(recurso.archivo_url)}
+                              <div>
+                                <h4 className="font-medium">{recurso.titulo}</h4>
+                                <p className="text-sm text-gray-500">{recurso.categoria_nombre}</p>
+                              </div>
+                            </div>
+                            <div className="text-sm font-medium text-blue-600">
+                              {recurso.descargas} descargas
+                            </div>
+                          </div>
+                        ))}
                 </div>
+                    )}
               </CardContent>
             </Card>
             <Card className="col-span-3">
@@ -263,12 +544,13 @@ export default function DocenteDashboard() {
                 <CardTitle>Mis Recursos</CardTitle>
                 <CardDescription>Gestiona todos tus recursos educativos</CardDescription>
               </div>
-              <Button>
+                  <Button onClick={() => setActiveTab('subir')}>
                 <Plus className="mr-2 h-4 w-4" />
                 Nuevo Recurso
               </Button>
             </CardHeader>
             <CardContent>
+                  {recursos.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <FileText className="h-16 w-16 text-gray-300 mb-4" />
                 <h3 className="text-xl font-medium">No has subido recursos todavía</h3>
@@ -276,9 +558,305 @@ export default function DocenteDashboard() {
                   Comparte tus materiales educativos con la comunidad UTP. Sube presentaciones, documentos, 
                   videos o cualquier recurso que consideres útil.
                 </p>
-                <Button>
+                      <Button onClick={() => setActiveTab('subir')}>
                   <Upload className="mr-2 h-4 w-4" />
                   Subir mi primer recurso
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {recursos.map((recurso) => (
+                        <Card 
+                          key={recurso.id} 
+                          className="group hover:shadow-lg transition-all duration-200 cursor-pointer"
+                          onClick={() => setSelectedRecurso(recurso)}
+                        >
+                          <CardHeader className="p-4 pb-2">
+                            <div className="flex items-center gap-3">
+                              <div 
+                                className="p-2 bg-gray-100 rounded-lg group-hover:bg-blue-50 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {getFileIcon(recurso.archivo_url)}
+                              </div>
+                              <div>
+                                <CardTitle 
+                                  className="text-lg line-clamp-1 group-hover:text-blue-600 transition-colors cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(`${process.env.NEXT_PUBLIC_API_URL}/recursos/download/${recurso.id}`, '_blank');
+                                  }}
+                                >
+                                  {recurso.titulo}
+                                </CardTitle>
+                                <CardDescription className="flex items-center gap-2">
+                                  <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
+                                    {recurso.categoria_nombre}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(recurso.fecha_creacion).toLocaleDateString()}
+                                  </span>
+                                </CardDescription>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-4 pt-2">
+                            <p className="text-sm text-gray-500 line-clamp-2 mb-4">
+                              {recurso.descripcion}
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <span className="flex items-center gap-1 text-blue-600 font-medium">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    className="h-4 w-4"
+                                  >
+                                    <path d="M8 17.929H6c-1.105 0-2-.912-2-2.036V5.036C4 3.91 4.895 3 6 3h8c1.105 0 2 .911 2 2.036v1.866m-6 .17h8c1.105 0 2 .91 2 2.035v10.857C20 21.09 19.105 22 18 22h-8c-1.105 0-2-.911-2-2.036V9.107c0-1.124.895-2.036 2-2.036z" />
+                                  </svg>
+                                  {recurso.descargas || 0}
+                                </span>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(`${process.env.NEXT_PUBLIC_API_URL}/recursos/download/${recurso.id}`, '_blank');
+                                  }}
+                                  className="hover:bg-blue-50 hover:text-blue-600"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEdit(recurso)}
+                                  className="hover:bg-blue-50 hover:text-blue-600"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDelete(recurso.id)}
+                                  className="hover:bg-red-50 hover:text-red-600"
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="subir" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Subir Nuevo Recurso</CardTitle>
+                  <CardDescription>Completa los campos para subir un nuevo recurso educativo.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleUploadSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="titulo">Título del Recurso</Label>
+                      <Input 
+                        id="titulo" 
+                        name="titulo"
+                        value={uploadFormData.titulo}
+                        onChange={handleUploadChange}
+                        placeholder="Ej: Presentación de Cálculo I" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="descripcion">Descripción</Label>
+                      <Textarea 
+                        id="descripcion" 
+                        name="descripcion"
+                        value={uploadFormData.descripcion}
+                        onChange={handleUploadChange}
+                        placeholder="Ej: Material de apoyo para el primer parcial..." 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="categoria">Categoría</Label>
+                      <Select 
+                        value={uploadFormData.categoria_id.toString()} 
+                        onValueChange={handleCategoriaChange}
+                      >
+                        <SelectTrigger id="categoria">
+                          <SelectValue placeholder="Selecciona una categoría" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categorias.map((categoria) => (
+                            <SelectItem key={categoria.id} value={categoria.id.toString()}>
+                              {categoria.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="archivo">Archivo</Label>
+                      <Input 
+                        id="archivo" 
+                        type="file" 
+                        onChange={handleFileChange}
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Formatos permitidos: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT
+                      </p>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setActiveTab('recursos')}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={isUploading}>
+                        {isUploading ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Subiendo...
+                          </>
+                        ) : (
+                          'Subir Recurso'
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {showEditForm && editingResource && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <Card className="w-full max-w-md">
+                        <CardHeader>
+                            <CardTitle>Editar Recurso</CardTitle>
+                            <CardDescription>Modifica la información del recurso.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-titulo">Título del Recurso</Label>
+                                <Input
+                                    id="edit-titulo"
+                                    value={editFormData.titulo}
+                                    onChange={(e) => setEditFormData({ ...editFormData, titulo: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-descripcion">Descripción</Label>
+                                <Textarea
+                                    id="edit-descripcion"
+                                    value={editFormData.descripcion}
+                                    onChange={(e) => setEditFormData({ ...editFormData, descripcion: e.target.value })}
+                                />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="edit-categoria">Categoría</Label>
+                                 <Select
+                                    value={editFormData.categoria_id.toString()}
+                                    onValueChange={(value) => setEditFormData({ ...editFormData, categoria_id: parseInt(value) })}
+                                >
+                                    <SelectTrigger id="edit-categoria">
+                                        <SelectValue placeholder="Selecciona una categoría" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categorias.map((categoria) => (
+                                            <SelectItem key={categoria.id} value={categoria.id.toString()}>
+                                                {categoria.nombre}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <Button variant="outline" onClick={() => setShowEditForm(false)}>Cancelar</Button>
+                                <Button onClick={handleUpdateResource} disabled={isUpdating}>
+                                    {isUpdating ? (
+                                        <>
+                                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                          </svg>
+                                          Guardando...
+                                        </>
+                                    ) : (
+                                        'Guardar Cambios'
+                                    )}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            <TabsContent value="colecciones" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Mis Colecciones</CardTitle>
+                  <CardDescription>Organiza tus recursos en colecciones temáticas</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <BookOpen className="h-16 w-16 text-gray-300 mb-4" />
+                    <h3 className="text-xl font-medium">No has creado colecciones todavía</h3>
+                    <p className="text-sm text-gray-500 mt-2 mb-6 max-w-md">
+                      Las colecciones te permiten organizar recursos relacionados para facilitar su acceso y compartir secuencias completas.
+                    </p>
+                    <Button>
+                      <FolderPlus className="mr-2 h-4 w-4" />
+                      Crear mi primera colección
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="favoritos" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Mis Favoritos</CardTitle>
+                  <CardDescription>Recursos que has marcado como favoritos</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      className="h-16 w-16 text-gray-300 mb-4"
+                    >
+                      <path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />
+                    </svg>
+                    <h3 className="text-xl font-medium">No tienes favoritos todavía</h3>
+                    <p className="text-sm text-gray-500 mt-2 mb-6 max-w-md">
+                      Explora recursos y marca como favoritos aquellos que te resulten más útiles para acceder fácilmente a ellos.
+                    </p>
+                    <Button variant="outline">
+                      Explorar recursos
                 </Button>
               </div>
             </CardContent>
@@ -364,10 +942,17 @@ export default function DocenteDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  )
-}
 
-function Label({ children }: { children: React.ReactNode }) {
-  return <div className="text-sm font-medium">{children}</div>
+          {selectedRecurso && (
+            <RecursoViewer
+              recurso={selectedRecurso}
+              isOpen={!!selectedRecurso}
+              onClose={() => setSelectedRecurso(null)}
+            />
+          )}
+        </>
+      )}
+      <Toaster />
+    </div>
+  );
 }

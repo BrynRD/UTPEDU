@@ -20,11 +20,11 @@ class Permiso {
       const { crear_recursos, editar_recursos, eliminar_recursos,
               gestionar_usuarios, ver_estadisticas, administrar_sistema } = permisos;
       
-      // Verificar si ya existen permisos para este usuario
+      
       const existingPermisos = await this.findByUsuarioId(userId);
       
       if (existingPermisos) {
-        // Actualizar permisos existentes
+        
         const [result] = await pool.query(
           `UPDATE permisos SET 
             crear_recursos = ?, 
@@ -47,7 +47,7 @@ class Permiso {
         
         return result.affectedRows > 0;
       } else {
-        // Crear nuevos permisos
+        
         const [result] = await pool.query(
           `INSERT INTO permisos (
             usuario_id, crear_recursos, editar_recursos, eliminar_recursos,
@@ -72,7 +72,7 @@ class Permiso {
     }
   }
   
-  // Verificar si un usuario tiene un permiso específico
+  
   static async checkPermission(userId, permission) {
     try {
       const permisos = await this.findByUsuarioId(userId);

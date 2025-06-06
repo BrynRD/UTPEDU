@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  backend:
+    # Construir la imagen desde el Dockerfile en el directorio backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      # Mapear el puerto 3001 del host al puerto 3001 del contenedor
+      - "3001:3001"
+    # Opcional: Volúmenes para desarrollo (si necesitas hot-reloading, etc.)
+    # volumes:
+    #   - ./backend:/app
+    # Ignorar node_modules si usas volúmenes para evitar conflictos
+    # - /app/node_modules
+    # Opcional: Variables de entorno (ej. conexión a BD si no está en Docker)
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=utpedu
+      - GOOGLE_DRIVE_FOLDER_ID=16NvIf4vONnAKt8Uoalquz7rc1sgwLgkf
+    depends_on:
+      - mysql
+
+  frontend:
+    # Construir la imagen desde el Dockerfile en el directorio frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      # Mapear el puerto 3000 del host al puerto 3000 del contenedor
+      - "3000:3000"
+    # Opcional: Volúmenes para desarrollo
+    # volumes:
+    #   - ./frontend:/app
+    # Ignorar node_modules si usas volúmenes
+    # - /app/node_modules
+    # Dependencia del backend (asegura que backend inicie primero)
+    depends_on:
+      - backend
+    # Opcional: Variables de entorno para el frontend (API_URL)
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:3001/api
+
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=utpedu
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+# Define volúmenes persistentes si usas servicios con estado como bases de datos
+# volumes:
+#   db_data: 
+
+volumes:
+  mysql_data: 

@@ -2,12 +2,10 @@ const { pool } = require('../config/db');
 
 class Recurso {
 
-  static async create(recursoData) {
-    const { titulo, descripcion, archivoUrl, categoriaId, usuarioId } = recursoData;
-    
+  static async create({ titulo, descripcion, archivoUrl, archivoId, categoriaId, usuarioId, tipoArchivo, descargas }) {
     const [result] = await pool.query(
-      'INSERT INTO recursos (titulo, descripcion, archivo_url, categoria_id, usuario_id) VALUES (?, ?, ?, ?, ?)',
-      [titulo, descripcion, archivoUrl, categoriaId, usuarioId]
+      'INSERT INTO recursos (titulo, descripcion, archivo_url, archivo_id, categoria_id, usuario_id, tipo_archivo, descargas) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [titulo, descripcion, archivoUrl, archivoId, categoriaId, usuarioId, tipoArchivo, descargas]
     );
     
     return result.insertId;
@@ -26,34 +24,33 @@ class Recurso {
 
  
   static async findByUsuario(usuarioId) {
-    const [recursos] = await pool.query(
-      `SELECT r.*, c.nombre as categoria 
+    const [recursos] = await pool.query(`
+      SELECT 
+        r.*,
+        c.nombre as categoria_nombre
        FROM recursos r 
        JOIN categorias c ON r.categoria_id = c.id 
        WHERE r.usuario_id = ? 
-       ORDER BY r.fecha_creacion DESC`,
-      [usuarioId]
-    );
+      ORDER BY r.fecha_creacion DESC
+    `, [usuarioId]);
     return recursos;
   }
 
   
   static async findById(id) {
-    const [recursos] = await pool.query(
-      `SELECT r.*, c.nombre as categoria, CONCAT(u.nombre, ' ', u.apellido) as autor 
+    const [recursos] = await pool.query(`
+      SELECT 
+        r.*,
+        c.nombre as categoria_nombre
        FROM recursos r 
        JOIN categorias c ON r.categoria_id = c.id 
-       JOIN usuarios u ON r.usuario_id = u.id 
-       WHERE r.id = ?`,
-      [id]
-    );
-    return recursos.length ? recursos[0] : null;
+      WHERE r.id = ?
+    `, [id]);
+    return recursos[0];
   }
 
   
-  static async update(id, recursoData) {
-    const { titulo, descripcion, categoriaId } = recursoData;
-    
+  static async update(id, { titulo, descripcion, categoriaId }) {
     const [result] = await pool.query(
       'UPDATE recursos SET titulo = ?, descripcion = ?, categoria_id = ? WHERE id = ?',
       [titulo, descripcion, categoriaId, id]

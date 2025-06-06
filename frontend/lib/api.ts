@@ -16,10 +16,48 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('Token añadido a la solicitud:', token.substring(0, 10) + '...');
+    } else {
+      console.warn('No se encontró token en localStorage');
     }
+    console.log('Realizando solicitud a:', config.url, config.method);
     return config;
   },
   (error) => {
+    console.error('Error en interceptor de solicitud:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor para manejar respuestas
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response) {
+      // El servidor respondió con un código de estado fuera del rango 2xx
+      console.error('Error de respuesta:', {
+        status: error.response.status,
+        data: error.response.data,
+        url: error.config?.url
+      });
+
+      // Si el error es 401, limpiar el token y redirigir al login
+      if (error.response.status === 401) {
+        console.log('Token expirado o inválido, limpiando datos de sesión...');
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+    } else if (error.request) {
+      // La solicitud fue hecha pero no se recibió respuesta
+      console.error('Error de red:', error.request);
+    } else {
+      // Algo sucedió al configurar la solicitud
+      console.error('Error:', error.message);
+    }
     return Promise.reject(error);
   }
 );
@@ -190,39 +228,17 @@ export const userService = {
 
 // Servicios de recursos
 export const recursoService = {
-  getAllRecursos: async () => {
-    const response = await api.get('/recursos');
-    return response.data;
-  },
-  
-  getMisRecursos: async () => {
-    const response = await api.get('/recursos/mis-recursos');
-    return response.data;
-  },
-  
-  getRecursoById: async (id: string) => {
-    const response = await api.get(`/recursos/${id}`);
-    return response.data;
-  },
-  
-  createRecurso: async (formData: FormData) => {
-    const response = await api.post('/recursos', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
-  },
-  
-  updateRecurso: async (id: string, recursoData: any) => {
-    const response = await api.put(`/recursos/${id}`, recursoData);
-    return response.data;
-  },
-  
-  deleteRecurso: async (id: string) => {
-    const response = await api.delete(`/recursos/${id}`);
-    return response.data;
-  }
+  getAllRecursos: () => api.get('/recursos').then(res => res.data),
+  getMisRecursos: () => api.get('/recursos/mis-recursos').then(res => res.data),
+  getRecursoById: (id: string) => api.get(`/recursos/${id}`).then(res => res.data),
+  createRecurso: (formData: FormData) => api.post('/recursos', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }).then(res => res.data),
+  updateRecurso: (id: string, recursoData: any) => api.put(`/recursos/${id}`, recursoData).then(res => res.data),
+  deleteRecurso: (id: string) => api.delete(`/recursos/${id}`).then(res => res.data),
+  getAllCategorias: () => api.get('/categorias').then(res => res.data),
 };
 
 // Servicios de categorías

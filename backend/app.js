@@ -3,20 +3,22 @@ const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Importar rutas
+
 const authRoutes = require('./routes/authRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const recursoRoutes = require('./routes/recursoRoutes');
 const categoriaRoutes = require('./routes/categoriaRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
-// Importar configuración de base de datos
+const recursoController = require('./controllers/recursoController');
+const authMiddleware = require('./middlewares/auth').verificarToken;
+
+
 const { initializeDatabase } = require('./config/db');
 
-// Cargar variables de entorno
 dotenv.config();
 
-// Crear la aplicación Express
+
 const app = express();
 
 app.use(express.json());
@@ -24,6 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 
 
 app.use((req, res, next) => {
+  console.log(`Incoming Request: ${req.method} ${req.originalUrl}`);
   if (req.method === 'POST' && req.path.includes('/login')) {
     console.log('Solicitud de login recibida:', {
       contentType: req.headers['content-type'],
@@ -34,7 +37,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Configuración de CORS
+
 app.use(cors({
   origin: function(origin, callback) {
     const allowedOrigins = [
@@ -63,28 +66,41 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Disposition'],
 }));
 
-// Servir archivos estáticos
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Rutas
+
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
+
+console.log('Registering specific /api/recursos/download/:id route in app.js');
+app.get('/api/recursos/download/:id', recursoController.downloadRecurso);
+
+console.log('Registering Recurso Routes under /api/recursos');
 app.use('/api/recursos', recursoRoutes);
+
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Ruta de prueba
+
 app.get('/', (req, res) => {
   res.json({ mensaje: 'API de Plataforma de Recursos Educativos' });
 });
 
-// Iniciar el servidor
+
+app.use((req, res, next) => {
+  console.error(`404 Not Found: ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+
 const PORT = process.env.PORT || 3001;
 
-// Inicializar la base de datos y luego iniciar el servidor
+
 initializeDatabase().then(() => {
   app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);

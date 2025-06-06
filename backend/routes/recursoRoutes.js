@@ -13,4 +13,7 @@ router.get('/:id', recursoController.getRecursoById);
 router.put('/:id', verificarToken, recursoController.updateRecurso);
 router.delete('/:id', verificarToken, recursoController.deleteRecurso);
 
+// Ruta para descargar un recurso por su ID
+router.get('/descargar/:id', verificarToken, recursoController.downloadRecurso);
+
 module.exports = router;

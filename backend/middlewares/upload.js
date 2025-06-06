@@ -1,21 +1,16 @@
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs'); // Importar fs para manejar directorios
 
+// Directorio temporal para Multer diskStorage
+const tempUploadsDir = path.join(__dirname, '../temp-uploads');
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../uploads/'));
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
-  }
-});
-
+// Crear el directorio temporal si no existe
+if (!fs.existsSync(tempUploadsDir)) {
+    fs.mkdirSync(tempUploadsDir);
+}
 
 const fileFilter = (req, file, cb) => {
-  
   const allowedFileTypes = [
     'application/pdf',
     'application/msword',
@@ -37,12 +32,20 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-
+// Configurar Multer para usar diskStorage
 const upload = multer({
-  storage: storage,
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, tempUploadsDir); // Guardar en el directorio temporal
+    },
+    filename: (req, file, cb) => {
+      // Usar el nombre original del archivo (Multer añadirá una extensión si es necesario)
+      cb(null, file.originalname);
+    }
+  }),
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 
+    fileSize: 100 * 1024 * 1024 // 100MB
   }
 });
 
