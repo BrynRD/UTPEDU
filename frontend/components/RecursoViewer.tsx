@@ -44,7 +44,7 @@ export function RecursoViewer({ recurso, isOpen, onClose }: RecursoViewerProps) 
     console.log("Determinando tipo de archivo para:", recurso);
 
     // PRIORIDAD 1: Check if it's a Google Drive URL
-    const url = recurso.archivo_url;
+    const url = recurso.archivo_url || '';
     if (url.includes('drive.google.com')) {
       const fileId = url.match(/\/d\/(.*?)\/view/)?.[1];
       if (fileId) {
@@ -132,6 +132,9 @@ export function RecursoViewer({ recurso, isOpen, onClose }: RecursoViewerProps) 
     return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
   };
 
+  // Construir la URL de descarga del backend para vista previa
+  const downloadUrl = `/api/recursos/download/${recurso.id}`;
+
   const renderPreview = () => {
     if (isLoading) {
       return (
@@ -164,29 +167,8 @@ export function RecursoViewer({ recurso, isOpen, onClose }: RecursoViewerProps) 
 
     switch (fileType) {
       case 'pdf':
-        // Only use PDFViewer for non-Google Drive PDFs
-        if (!recurso.archivo_url.includes('drive.google.com')) {
-          return <PDFViewer url={recurso.archivo_url} title={recurso.titulo} onLoadComplete={handleLoadComplete} />;
-        }
-        // Fall through to iframe case for Google Drive PDFs
-      case 'doc':
-      case 'excel':
-      case 'ppt':
-      case 'iframe':
-        return (
-          <div className="relative w-full h-full rounded-lg overflow-hidden">
-            <iframe
-              src={getViewerUrl(recurso.archivo_url)}
-              className="absolute inset-0 w-full h-full"
-              title={recurso.titulo}
-              onLoad={() => handleLoadComplete(true)}
-              onError={() => handleLoadComplete(false)}
-              style={{ border: 'none' }}
-              allowFullScreen
-            />
-          </div>
-        );
-
+        // Mostrar PDF usando PDFViewer (PDF.js)
+        return <PDFViewer url={downloadUrl} title={recurso.titulo} onLoadComplete={handleLoadComplete} />;
       case 'txt':
         if (isTxtLoading) {
           return (
@@ -198,31 +180,37 @@ export function RecursoViewer({ recurso, isOpen, onClose }: RecursoViewerProps) 
             </div>
           );
         }
+        // Mostrar texto plano
         return (
-          <div className="w-full h-full rounded-lg overflow-auto bg-white p-4">
-            <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800">
-              {txtContent}
-            </pre>
+          <div className="overflow-auto h-full bg-gray-50 rounded-lg p-4">
+            <pre className="whitespace-pre-wrap text-sm text-gray-800">{txtContent || 'No hay contenido.'}</pre>
           </div>
         );
-
-      default:
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+      case 'webp':
+        // Mostrar imagen
         return (
           <div className="flex items-center justify-center h-full bg-gray-50 rounded-lg">
-            <div className="text-center">
-              <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">
-                No se puede previsualizar este tipo de archivo.
-                Asegúrate de que el archivo sea público si es de Google Drive.
-              </p>
-              <Button
-                className="mt-4"
-                onClick={() => window.open(recurso.archivo_url, '_blank')}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Descargar archivo
-              </Button>
-            </div>
+            <img src={downloadUrl} alt={recurso.titulo} className="max-h-[70vh] max-w-full rounded shadow" />
+          </div>
+        );
+      default:
+        // Otros formatos: solo botón de descarga
+        return (
+          <div className="flex flex-col items-center justify-center h-full bg-gray-50 rounded-lg">
+            <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 mb-4">Vista previa no disponible para este tipo de archivo.</p>
+            <Button
+              className="mt-4"
+              onClick={() => window.open(downloadUrl, '_blank')}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Descargar archivo
+            </Button>
           </div>
         );
     }

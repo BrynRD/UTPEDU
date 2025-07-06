@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const Usuario = require('../models/Usuario');
 const { pool } = require('../config/db'); 
+const axios = require('axios');
 
 
 exports.registro = async (req, res) => {
@@ -80,23 +81,42 @@ exports.registro = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    
     if (!req.body) {
       console.log('Error: req.body es undefined');
       return res.status(400).json({ mensaje: 'Datos de solicitud vacíos' });
     }
-    
-    console.log('Datos recibidos en login:', req.body);
-    
-    
-    const { email, codigoInstitucional, password } = req.body;
-    
-    
+
+    // Enmascarar la contraseña en los logs
+    const { password, ...rest } = req.body;
+    console.log('Datos recibidos en login:', { ...rest, password: '***' });
+
+    const { email, codigoInstitucional, captchaToken } = req.body;
+
+    // Permitir login sin captcha si DISABLE_CAPTCHA está activo
+    if (process.env.DISABLE_CAPTCHA === 'true') {
+      console.log('Captcha desactivado por entorno de pruebas');
+    } else {
+      // Validar captcha antes de continuar
+      if (!captchaToken) {
+        return res.status(400).json({ mensaje: 'Captcha requerido' });
+      }
+      const secret = process.env.RECAPTCHA_SECRET_KEY;
+      if (!secret) {
+        return res.status(500).json({ mensaje: 'Error de configuración del servidor' });
+      }
+      const captchaResponse = await axios.post(
+        `https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${captchaToken}`
+      );
+      if (!captchaResponse.data.success) {
+        return res.status(400).json({ mensaje: 'Captcha inválido' });
+      }
+    }
+
     const identifier = email || codigoInstitucional;
     
-    if (!identifier || !password) {
+    if (!identifier) {
       return res.status(400).json({ 
-        mensaje: 'Por favor proporcione su código institucional o email y contraseña' 
+        mensaje: 'Por favor proporcione su código institucional o email' 
       });
     }
     

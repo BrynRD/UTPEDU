@@ -30,8 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# Environment variables (CRÍTICO - Contiene datos sensibles)
 .env*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -39,3 +43,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS específicos
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Cypress (si usas testing)
+/cypress/videos
+/cypress/screenshots
+
+# Storybook (si usas)
+storybook-static

@@ -4,30 +4,76 @@ npm-debug.log
 yarn-debug.log
 yarn-error.log
 
-# Environment variables
+# Environment variables (CRÍTICO - Contiene datos sensibles)
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
 
-# Google Drive credentials
+# Credenciales y claves de API
 google-credentials.json
 credentials.json
 *.json.key
+*.pem
+*.key
+*.p12
 
-# IDE
+# Nextcloud y servicios externos
+nextcloud-config.json
+clickup-config.json
+
+# Uploads y archivos temporales
+uploads/
+temp-uploads/
+*.tmp
+*.temp
+
+# IDE y editores
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Logs
-logs
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# Build
+# Build y distribución
 dist/
-build/ 
+build/
+.output/
+
+# Testing
+coverage/
+.nyc_output
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Package lock files (opcional - depende de tu preferencia)
+# package-lock.json
+# yarn.lock 

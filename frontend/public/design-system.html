@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTPEDU - Sistema de Diseño</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+
+        :root {
+            /* Tokens de tu globals.css */
+            --bg-color: #FFFFFF;
+            --card-bg-color: #F9FAFB;
+            --text-color: #111827;
+            --subtle-text-color: #6B7280;
+            --border-color: #E5E7EB;
+            --primary-color: #5b36f2;
+            --primary-text: #FFFFFF;
+            --destructive-color: #EF4444;
+            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            --card-radius: 0.5rem; /* Tu variable --radius */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            color: var(--primary-color);
+        }
+
+        header p {
+            font-size: 1.125rem;
+            color: var(--subtle-text-color);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background-color: var(--card-bg-color);
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            padding: 2rem;
+            min-width: 300px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .section-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--subtle-text-color);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Colors Section */
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .color-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .color-swatch {
+            width: 100%;
+            height: 60px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .color-info {
+            margin-top: 0.5rem;
+        }
+
+        .color-name {
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .color-hex {
+            font-size: 0.75rem;
+            color: var(--subtle-text-color);
+        }
+
+        /* Typography Section */
+        .type-item {
+            margin-bottom: 1.5rem;
+        }
+        .type-info {
+            font-size: 0.875rem;
+            color: var(--subtle-text-color);
+            margin-bottom: 0.5rem;
+        }
+        .type-sample.h1 { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.025em; }
+        .type-sample.h2 { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.025em; }
+        .type-sample.h3 { font-size: 1.5rem; font-weight: 700; }
+        .type-sample.body { font-size: 1rem; line-height: 1.6; }
+        .type-sample.muted { font-size: 0.875rem; color: var(--subtle-text-color); }
+
+        /* Component Section */
+        .component-preview {
+            padding: 2rem;
+            border: 1px dashed var(--border-color);
+            border-radius: var(--card-radius);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+        }
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--card-radius);
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .button-primary {
+            background-color: var(--primary-color);
+            color: var(--primary-text);
+        }
+        .button-primary:hover {
+            opacity: 0.9;
+        }
+        .button-outline {
+            background-color: transparent;
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .button-outline:hover {
+            background-color: #f0edfe;
+        }
+        .button-destructive {
+            background-color: var(--destructive-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Sistema de Diseño UTPEDU</h1>
+            <p>Guía de estilos, componentes y tokens visuales de la plataforma.</p>
+        </header>
+
+        <div class="grid-container">
+            <!-- Colors Card -->
+            <div class="card">
+                <h2 class="card-title">Paleta de Colores</h2>
+                
+                <h3 class="section-title">Principal</h3>
+                <div class="color-grid">
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #5b36f2;"></div>
+                        <div class="color-info"><div class="color-name">Primary</div><div class="color-hex">#5b36f2</div></div>
+                    </div>
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #F5F3FA;"></div>
+                        <div class="color-info"><div class="color-name">Secondary</div><div class="color-hex">#F5F3FA</div></div>
+                    </div>
+                </div>
+
+                <h3 class="section-title">Interfaz</h3>
+                <div class="color-grid">
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #FFFFFF;"></div>
+                        <div class="color-info"><div class="color-name">Background</div><div class="color-hex">#FFFFFF</div></div>
+                    </div>
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #111827;"></div>
+                        <div class="color-info"><div class="color-name">Foreground</div><div class="color-hex">#111827</div></div>
+                    </div>
+                     <div class="color-item">
+                        <div class="color-swatch" style="background-color: #FFFFFF; border: 1px solid #E5E7EB;"></div>
+                        <div class="color-info"><div class="color-name">Card</div><div class="color-hex">#FFFFFF</div></div>
+                    </div>
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #F5F3FA;"></div>
+                        <div class="color-info"><div class="color-name">Muted</div><div class="color-hex">#F5F3FA</div></div>
+                    </div>
+                </div>
+
+                <h3 class="section-title">Semánticos</h3>
+                <div class="color-grid">
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #EF4444;"></div>
+                        <div class="color-info"><div class="color-name">Destructive</div><div class="color-hex">#EF4444</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typography Card -->
+            <div class="card">
+                <h2 class="card-title">Tipografía (Fuente: Inter)</h2>
+                
+                <div class="type-item">
+                    <div class="type-info">H1 - text-3xl font-bold</div>
+                    <div class="type-sample h1">Dashboard de Estudiante</div>
+                </div>
+                <div class="type-item">
+                    <div class="type-info">H2 - text-2xl font-semibold</div>
+                    <div class="type-sample h2">Registro de Usuario</div>
+                </div>
+                <div class="type-item">
+                    <div class="type-info">H3 - text-xl font-bold</div>
+                    <div class="type-sample h3">Recursos Educativos</div>
+                </div>
+                <div class="type-item">
+                    <div class="type-info">Body - text-base</div>
+                    <div class="type-sample body">Plataforma educativa de la Universidad Tecnológica del Perú. Sube, categoriza y comparte tus mejores recursos.</div>
+                </div>
+                 <div class="type-item">
+                    <div class="type-info">Muted - text-sm text-muted-foreground</div>
+                    <div class="type-sample muted">Gestiona tu información personal.</div>
+                </div>
+            </div>
+
+            <!-- Components Card -->
+            <div class="card">
+                <h2 class="card-title">Componentes</h2>
+                
+                <h3 class="section-title">Botones</h3>
+                <div class="component-preview">
+                    <button class="button button-primary">Comenzar ahora</button>
+                    <button class="button button-outline">Explorar</button>
+                    <button class="button button-destructive">Eliminar</button>
+                </div>
+
+                <h3 class="section-title">Inputs</h3>
+                <div class="component-preview">
+                    <input type="text" placeholder="Ingresa tu nombre..." style="border: 1px solid var(--border-color); padding: 0.75rem; border-radius: var(--card-radius); width: 100%;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
+```// filepath: c:\Users\bryn\Desktop\UTPEDU\frontend\public\design-system.html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTPEDU - Sistema de Diseño</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+
+        :root {
+            /* Tokens de tu globals.css */
+            --bg-color: #FFFFFF;
+            --card-bg-color: #F9FAFB;
+            --text-color: #111827;
+            --subtle-text-color: #6B7280;
+            --border-color: #E5E7EB;
+            --primary-color: #5b36f2;
+            --primary-text: #FFFFFF;
+            --destructive-color: #EF4444;
+            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            --card-radius: 0.5rem; /* Tu variable --radius */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            color: var(--primary-color);
+        }
+
+        header p {
+            font-size: 1.125rem;
+            color: var(--subtle-text-color);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background-color: var(--card-bg-color);
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            padding: 2rem;
+            min-width: 300px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .section-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--subtle-text-color);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Colors Section */
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .color-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .color-swatch {
+            width: 100%;
+            height: 60px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .color-info {
+            margin-top: 0.5rem;
+        }
+
+        .color-name {
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .color-hex {
+            font-size: 0.75rem;
+            color: var(--subtle-text-color);
+        }
+
+        /* Typography Section */
+        .type-item {
+            margin-bottom: 1.5rem;
+        }
+        .type-info {
+            font-size: 0.875rem;
+            color: var(--subtle-text-color);
+            margin-bottom: 0.5rem;
+        }
+        .type-sample.h1 { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.025em; }
+        .type-sample.h2 { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.025em; }
+        .type-sample.h3 { font-size: 1.5rem; font-weight: 700; }
+        .type-sample.body { font-size: 1rem; line-height: 1.6; }
+        .type-sample.muted { font-size: 0.875rem; color: var(--subtle-text-color); }
+
+        /* Component Section */
+        .component-preview {
+            padding: 2rem;
+            border: 1px dashed var(--border-color);
+            border-radius: var(--card-radius);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+        }
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--card-radius);
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .button-primary {
+            background-color: var(--primary-color);
+            color: var(--primary-text);
+        }
+        .button-primary:hover {
+            opacity: 0.9;
+        }
+        .button-outline {
+            background-color: transparent;
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .button-outline:hover {
+            background-color: #f0edfe;
+        }
+        .button-destructive {
+            background-color: var(--destructive-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Sistema de Diseño UTPEDU</h1>
+            <p>Guía de estilos, componentes y tokens visuales de la plataforma.</p>
+        </header>
+
+        <div class="grid-container">
+            <!-- Colors Card -->
+            <div class="card">
+                <h2 class="card-title">Paleta de Colores</h2>
+                
+                <h3 class="section-title">Principal</h3>
+                <div class="color-grid">
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #5b36f2;"></div>
+                        <div class="color-info"><div class="color-name">Primary</div><div class="color-hex">#5b36f2</div></div>
+                    </div>
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #F5F3FA;"></div>
+                        <div class="color-info"><div class="color-name">Secondary</div><div class="color-hex">#F5F3FA</div></div>
+                    </div>
+                </div>
+
+                <h3 class="section-title">Interfaz</h3>
+                <div class="color-grid">
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #FFFFFF;"></div>
+                        <div class="color-info"><div class="color-name">Background</div><div class="color-hex">#FFFFFF</div></div>
+                    </div>
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #111827;"></div>
+                        <div class="color-info"><div class="color-name">Foreground</div><div class="color-hex">#111827</div></div>
+                    </div>
+                     <div class="color-item">
+                        <div class="color-swatch" style="background-color: #FFFFFF; border: 1px solid #E5E7EB;"></div>
+                        <div class="color-info"><div class="color-name">Card</div><div class="color-hex">#FFFFFF</div></div>
+                    </div>
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #F5F3FA;"></div>
+                        <div class="color-info"><div class="color-name">Muted</div><div class="color-hex">#F5F3FA</div></div>
+                    </div>
+                </div>
+
+                <h3 class="section-title">Semánticos</h3>
+                <div class="color-grid">
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: #EF4444;"></div>
+                        <div class="color-info"><div class="color-name">Destructive</div><div class="color-hex">#EF4444</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typography Card -->
+            <div class="card">
+                <h2 class="card-title">Tipografía (Fuente: Inter)</h2>
+                
+                <div class="type-item">
+                    <div class="type-info">H1 - text-3xl font-bold</div>
+                    <div class="type-sample h1">Dashboard de Estudiante</div>
+                </div>
+                <div class="type-item">
+                    <div class="type-info">H2 - text-2xl font-semibold</div>
+                    <div class="type-sample h2">Registro de Usuario</div>
+                </div>
+                <div class="type-item">
+                    <div class="type-info">H3 - text-xl font-bold</div>
+                    <div class="type-sample h3">Recursos Educativos</div>
+                </div>
+                <div class="type-item">
+                    <div class="type-info">Body - text-base</div>
+                    <div class="type-sample body">Plataforma educativa de la Universidad Tecnológica del Perú. Sube, categoriza y comparte tus mejores recursos.</div>
+                </div>
+                 <div class="type-item">
+                    <div class="type-info">Muted - text-sm text-muted-foreground</div>
+                    <div class="type-sample muted">Gestiona tu información personal.</div>
+                </div>
+            </div>
+
+            <!-- Components Card -->
+            <div class="card">
+                <h2 class="card-title">Componentes</h2>
+                
+                <h3 class="section-title">Botones</h3>
+                <div class="component-preview">
+                    <button class="button button-primary">Comenzar ahora</button>
+                    <button class="button button-outline">Explorar</button>
+                    <button class="button button-destructive">Eliminar</button>
+                </div>
+
+                <h3 class="section-title">Inputs</h3>
+                <div class="component-preview">
+                    <input type="text" placeholder="Ingresa tu nombre..." style="border: 1px solid var(--border-color); padding: 0.75rem; border-radius:

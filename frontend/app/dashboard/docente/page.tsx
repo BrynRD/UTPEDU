@@ -24,11 +24,14 @@ import {
   Plus,
   Pencil,
   Trash,
+  Ticket,
+  AlertCircle,
 } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -36,10 +39,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { authService, recursoService } from "@/lib/api";
+import { authService } from "@/lib/api";
+import { recursoService } from "@/lib/api/recursoService";
 import { toast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { RecursoViewer } from "@/components/RecursoViewer";
+import Link from "next/link";
 
 interface Categoria {
   id: number;
@@ -123,14 +128,21 @@ export default function DocenteDashboard() {
   const router = useRouter();
 
   const [selectedRecurso, setSelectedRecurso] = useState<Recurso | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [incidencias, setIncidencias] = useState<any[]>([]);
+  const [isLoadingIncidencias, setIsLoadingIncidencias] = useState(false);
+
+  const [editFile, setEditFile] = useState<File | null>(null);
 
   const handleEdit = (recurso: Recurso) => {
+    setSelectedRecurso(null);
     setEditingResource(recurso);
     setEditFormData({
       titulo: recurso.titulo,
       descripcion: recurso.descripcion || "",
       categoria_id: recurso.categoria_id || 1
     });
+    setEditFile(null);
     setShowEditForm(true);
   };
 
@@ -148,6 +160,9 @@ export default function DocenteDashboard() {
         description: "Recurso eliminado correctamente.",
       });
       setRecursos(recursos.filter(recurso => recurso.id !== id));
+      if (selectedRecurso && selectedRecurso.id === id) {
+        setSelectedRecurso(null);
+      }
     } catch (error) {
       console.error('Error al eliminar recurso:', error);
       toast({
@@ -170,6 +185,12 @@ export default function DocenteDashboard() {
     console.log("Guardar cambios de perfil:", formData);
   };
 
+  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setEditFile(e.target.files[0]);
+    }
+  };
+
   const handleUpdateResource = async () => {
       if (!editingResource) return;
 
@@ -184,27 +205,34 @@ export default function DocenteDashboard() {
 
       try {
           setIsUpdating(true);
-          await recursoService.updateRecurso(editingResource.id.toString(), {
-              titulo: editFormData.titulo,
-              descripcion: editFormData.descripcion,
-              categoriaId: editFormData.categoria_id,
-          });
-
+          let response;
+          if (editFile) {
+            const formData = new FormData();
+            formData.append('titulo', editFormData.titulo);
+            formData.append('descripcion', editFormData.descripcion);
+            formData.append('categoriaId', editFormData.categoria_id.toString());
+            formData.append('archivo', editFile);
+            response = await recursoService.updateRecurso(editingResource.id.toString(), formData, true);
+          } else {
+            response = await recursoService.updateRecurso(editingResource.id.toString(), {
+                titulo: editFormData.titulo,
+                descripcion: editFormData.descripcion,
+                categoriaId: editFormData.categoria_id,
+            });
+          }
           toast({
               title: "Éxito",
               description: "Recurso actualizado correctamente.",
           });
-
-          setRecursos(recursos.map(res => 
-              res.id === editingResource.id 
-              ? { ...res, ...editFormData, categoria_nombre: categorias.find(cat => cat.id === editFormData.categoria_id)?.nombre || '' } 
+          setRecursos(recursos.map(res =>
+              res.id === editingResource.id
+              ? { ...res, ...editFormData, categoria_nombre: categorias.find(cat => cat.id === editFormData.categoria_id)?.nombre || '' }
               : res
           ));
-
           setShowEditForm(false);
           setEditingResource(null);
+          setEditFile(null);
           setIsUpdating(false);
-
       } catch (error) {
           console.error('Error updating resource:', error);
           toast({
@@ -328,6 +356,15 @@ export default function DocenteDashboard() {
             totalDescargas: recursosResponse.reduce((sum: number, recurso: Recurso) => sum + (recurso.descargas || 0), 0),
             recursosPopulares: recursosResponse.slice().sort((a: Recurso, b: Recurso) => (b.descargas || 0) - (a.descargas || 0)).slice(0, 5) as Recurso[],
           });
+
+          // Cargar incidencias del usuario
+          setIsLoadingIncidencias(true);
+          fetch(`/api/incidencias/usuario`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          })
+            .then(res => res.json())
+            .then(data => setIncidencias(data.incidencias || []))
+            .finally(() => setIsLoadingIncidencias(false));
         }
       } catch (error: any) {
         console.error("Error al cargar datos iniciales:", error);
@@ -392,8 +429,19 @@ export default function DocenteDashboard() {
             Bienvenido(a) {userData.nombre} {userData.apellido}. Gestiona tus recursos y perfil.
           </p>
         </div>
-        <div className="flex gap-2">
-              <Button onClick={() => setActiveTab('subir')}>
+        <div className="flex gap-2 items-center">
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            asChild
+            title="Reportar incidencia"
+          >
+            <Link href="/reportar-incidencia">
+              <Ticket className="h-5 w-5 mr-1" />
+              <span className="hidden sm:inline">Reportar incidencia</span>
+            </Link>
+          </Button>
+          <Button onClick={() => setActiveTab('subir')}>
             <Upload className="mr-2 h-4 w-4" />
             Subir Recurso
           </Button>
@@ -405,12 +453,15 @@ export default function DocenteDashboard() {
       </div>
 
           <Tabs defaultValue="resumen" className="space-y-6" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 md:grid-cols-5 lg:w-[600px]">
+        <TabsList className="grid grid-cols-3 md:grid-cols-6 lg:w-[800px]">
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
           <TabsTrigger value="recursos">Mis Recursos</TabsTrigger>
           <TabsTrigger value="colecciones">Colecciones</TabsTrigger>
           <TabsTrigger value="favoritos">Favoritos</TabsTrigger>
           <TabsTrigger value="perfil">Mi Perfil</TabsTrigger>
+          <TabsTrigger value="incidencias" className="text-[#5b36f2] data-[state=active]:bg-[#5b36f2] data-[state=active]:text-white">
+            <Ticket className="h-4 w-4 mr-1" /> Mis Incidencias
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumen" className="space-y-6">
@@ -637,7 +688,7 @@ export default function DocenteDashboard() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleEdit(recurso)}
+                                  onClick={(e) => { e.stopPropagation(); handleEdit(recurso); }}
                                   className="hover:bg-blue-50 hover:text-blue-600"
                                 >
                                   <Pencil className="h-4 w-4" />
@@ -645,7 +696,7 @@ export default function DocenteDashboard() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleDelete(recurso.id)}
+                                  onClick={(e) => { e.stopPropagation(); handleDelete(recurso.id); }}
                                   className="hover:bg-red-50 hover:text-red-600"
                                 >
                                   <Trash className="h-4 w-4" />
@@ -787,6 +838,18 @@ export default function DocenteDashboard() {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-archivo">Archivo (opcional, para reemplazar)</Label>
+                              <Input
+                                id="edit-archivo"
+                                type="file"
+                                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
+                                onChange={handleEditFileChange}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Si seleccionas un archivo, reemplazará el actual.
+                              </p>
                             </div>
                             <div className="flex justify-end gap-2">
                                 <Button variant="outline" onClick={() => setShowEditForm(false)}>Cancelar</Button>
@@ -941,6 +1004,122 @@ export default function DocenteDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="incidencias" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mis Incidencias</CardTitle>
+              <CardDescription>Historial de reportes enviados a soporte técnico</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingIncidencias ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#5b36f2] mx-auto mb-4"></div>
+                  <p className="text-gray-600">Cargando incidencias...</p>
+                </div>
+              ) : incidencias.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <AlertCircle className="h-20 w-20 text-[#5b36f2] mb-6" />
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">No has reportado incidencias</h3>
+                  <p className="text-sm text-gray-500 max-w-md">
+                    Cuando reportes un problema, aparecerá aquí el historial de tus incidencias.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {incidencias.map((inc) => (
+                    <Card key={inc.id} className="border-l-4 border-[#5b36f2] hover:shadow-md transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col lg:flex-row gap-6">
+                          {/* Imagen con vista previa */}
+                          {inc.imagenUrl && (
+                            <div className="flex-shrink-0">
+                              <div 
+                                className="relative cursor-pointer group"
+                                onClick={() => setSelectedImage(inc.imagenUrl)}
+                              >
+                                <img 
+                                  src={inc.imagenUrl} 
+                                  alt="Imagen incidencia" 
+                                  className="w-32 h-32 object-cover rounded-lg border-2 border-[#5b36f2] hover:border-[#4c2fd9] transition-colors" 
+                                />
+                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-2 text-center">Clic para ampliar</p>
+                            </div>
+                          )}
+                          
+                          {/* Contenido principal */}
+                          <div className="flex-1 min-w-0">
+                            {/* Header con ID, estado y fecha */}
+                            <div className="flex flex-wrap items-center gap-3 mb-3">
+                              <Badge variant="outline" className="text-xs font-mono bg-gray-50">
+                                #{inc.id}
+                              </Badge>
+                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
+                                {inc.estado || 'Pendiente'}
+                              </Badge>
+                              <span className="text-xs text-gray-500 ml-auto">
+                                {new Date(inc.fecha).toLocaleString('es-PE', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            
+                            {/* Asunto destacado */}
+                            <h3 className="text-lg font-semibold text-[#5b36f2] mb-2 hover:text-[#4c2fd9] transition-colors cursor-pointer">
+                              {inc.asunto}
+                            </h3>
+                            
+                            {/* Email del usuario */}
+                            <div className="flex items-center gap-2 mb-3">
+                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                              </svg>
+                              <span className="text-sm text-gray-600 font-medium">{inc.email}</span>
+                            </div>
+                            
+                            {/* Descripción */}
+                            <div className="bg-gray-50 p-4 rounded-lg mb-3">
+                              <p className="text-gray-800 text-sm leading-relaxed">
+                                {inc.descripcion}
+                              </p>
+                            </div>
+                            
+                            {/* Footer con información adicional */}
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <div className="flex items-center gap-4">
+                                <span>Reportado por: {inc.nombre}</span>
+                                {inc.imagenUrl && (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+                                    </svg>
+                                    Con imagen
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
           {selectedRecurso && (
@@ -949,6 +1128,27 @@ export default function DocenteDashboard() {
               isOpen={!!selectedRecurso}
               onClose={() => setSelectedRecurso(null)}
             />
+          )}
+
+          {/* Modal para ver imagen en grande */}
+          {selectedImage && (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+              <div className="relative max-w-4xl max-h-full">
+                <button
+                  onClick={() => setSelectedImage(null)}
+                  className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
+                >
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <img
+                  src={selectedImage}
+                  alt="Vista previa ampliada"
+                  className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+                />
+              </div>
+            </div>
           )}
         </>
       )}

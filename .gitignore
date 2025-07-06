@@ -1,0 +1,61 @@
+# UTPEDU - Archivos a ignorar
+
+# Variables de entorno (CRÍTICO)
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archivos de configuración sensibles
+config/production.json
+credentials.json
+*.pem
+*.key
+*.p12
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Archivos temporales
+*.tmp
+*.temp
+*.cache
+
+# Build
+dist/
+build/
+.output/
+
+# Coverage
+coverage/
+.nyc_output
+
+# Base de datos local (si aplica)
+*.db
+*.sqlite
+*.sqlite3
+
+# Backups
+*.bak
+*.backup
+
+# Documentación generada
+docs/generated/

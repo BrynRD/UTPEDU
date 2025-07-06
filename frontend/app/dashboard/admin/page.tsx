@@ -37,6 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { ChangePasswordDialog } from "@/components/dashboard/admin/ChangePasswordDialog"
 import { CreateUserDialog } from "@/components/dashboard/admin/CreateUserDialog"
+import { Badge } from "@/components/ui/badge"
 
 
 interface Usuario {
@@ -71,6 +72,19 @@ interface EstadisticasDashboard {
   descargasSemanales: number
   nuevosRegistros: number
   nuevosRegistrosSemanales: number
+}
+
+interface Incidencia {
+  id: number;
+  nombre: string;
+  email: string;
+  asunto: string;
+  descripcion: string;
+  estado: string;
+  fecha: string;
+  imagenUrl?: string;
+  usuario_id?: number;
+  codigo_institucional?: string;
 }
 
 export default function AdminDashboard() {
@@ -111,6 +125,17 @@ export default function AdminDashboard() {
     verEstadisticas: false,
     administrarSistema: false
   })
+
+  const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
+  const [isLoadingIncidencias, setIsLoadingIncidencias] = useState(false);
+  const [incidenciasPage, setIncidenciasPage] = useState(1);
+  const [incidenciasLimit] = useState(10);
+  const [incidenciasTotal, setIncidenciasTotal] = useState(0);
+  const [incidenciasTotalPages, setIncidenciasTotalPages] = useState(1);
+  const [filtroEstado, setFiltroEstado] = useState<string>('all');
+  const [filtroUsuario, setFiltroUsuario] = useState<string>('all');
+  const [filtroFechaInicio, setFiltroFechaInicio] = useState<string>('');
+  const [filtroFechaFin, setFiltroFechaFin] = useState<string>('');
 
   
   useEffect(() => {
@@ -186,6 +211,37 @@ useEffect(() => {
   fetchData()
 }, [toast, currentPage, usersPerPage])
 
+// Fetch incidencias para admin con filtros y paginación
+useEffect(() => {
+  const fetchIncidencias = async () => {
+    setIsLoadingIncidencias(true);
+    let token = "";
+    try {
+      const userData = localStorage.getItem('token');
+      token = userData || "";
+    } catch (e) {}
+    const params = new URLSearchParams();
+    params.append('page', String(incidenciasPage));
+    params.append('limit', String(incidenciasLimit));
+    if (filtroEstado !== 'all') params.append('estado', filtroEstado);
+    if (filtroUsuario !== 'all') params.append('usuario_id', filtroUsuario);
+    if (filtroFechaInicio) params.append('fecha_inicio', filtroFechaInicio);
+    if (filtroFechaFin) params.append('fecha_fin', filtroFechaFin);
+    const res = await fetch(`/api/incidencias/admin?${params.toString()}`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setIncidencias(data.incidencias || []);
+      setIncidenciasTotal(data.total || 0);
+      setIncidenciasTotalPages(data.totalPages || 1);
+    } else {
+      toast({ title: 'Error', description: 'No se pudieron cargar las incidencias.', variant: 'destructive' });
+    }
+    setIsLoadingIncidencias(false);
+  };
+  fetchIncidencias();
+}, [incidenciasPage, incidenciasLimit, filtroEstado, filtroUsuario, filtroFechaInicio, filtroFechaFin]);
 
   const usuariosFiltrados = usuarios.filter(usuario => 
     usuario.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -430,6 +486,29 @@ const handleDeleteUsuario = async (usuarioId: number) => {
   }
 };
 
+// Cambiar estado de incidencia
+const handleChangeEstado = async (id: number, nuevoEstado: string) => {
+  let token = "";
+  try {
+    const userData = localStorage.getItem('token');
+    token = userData || "";
+  } catch (e) {}
+  const res = await fetch(`/api/incidencias/admin/${id}/estado`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ estado: nuevoEstado })
+  });
+  if (res.ok) {
+    setIncidencias(prev => prev.map(inc => inc.id === id ? { ...inc, estado: nuevoEstado } : inc));
+    toast({ title: 'Estado actualizado', description: 'El estado de la incidencia fue actualizado.' });
+  } else {
+    toast({ title: 'Error', description: 'No se pudo actualizar el estado.', variant: 'destructive' });
+  }
+};
+
   if (loading || (isAuthenticated && user?.rol !== 'admin')) {
     return (
       <div className="container mx-auto py-10 px-4">
@@ -500,12 +579,13 @@ const handleDeleteUsuario = async (usuarioId: number) => {
       </div>
 
       <Tabs defaultValue="resumen" className="space-y-6">
-        <TabsList className="grid grid-cols-2 md:grid-cols-5 lg:w-[600px]">
+        <TabsList className="grid grid-cols-5 md:grid-cols-6 lg:w-[900px]">
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
           <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
           <TabsTrigger value="recursos">Recursos</TabsTrigger>
           <TabsTrigger value="reportes">Reportes</TabsTrigger>
           <TabsTrigger value="configuracion">Configuración</TabsTrigger>
+          <TabsTrigger value="incidencias">Incidencias</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumen" className="space-y-6">
@@ -883,6 +963,166 @@ const handleDeleteUsuario = async (usuarioId: number) => {
             </CardHeader>
             <CardContent>
               <p>El contenido de esta pestaña está en desarrollo.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="incidencias" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Gestión de Incidencias</CardTitle>
+              <CardDescription>Administra y da seguimiento a todos los reportes de la plataforma.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Filtros */}
+              <div className="flex flex-wrap gap-4 mb-4 items-end">
+                <div>
+                  <Label>Estado</Label>
+                  <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+                    <SelectTrigger className="w-36">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="pendiente">Pendiente</SelectItem>
+                      <SelectItem value="en_proceso">En proceso</SelectItem>
+                      <SelectItem value="resuelta">Resuelta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Usuario</Label>
+                  <Select value={filtroUsuario} onValueChange={setFiltroUsuario}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {usuarios.map(u => (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          {u.nombre} {u.apellido} ({u.codigo_institucional})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Fecha inicio</Label>
+                  <Input type="date" value={filtroFechaInicio} onChange={e => setFiltroFechaInicio(e.target.value)} className="w-36" />
+                </div>
+                <div>
+                  <Label>Fecha fin</Label>
+                  <Input type="date" value={filtroFechaFin} onChange={e => setFiltroFechaFin(e.target.value)} className="w-36" />
+                </div>
+                <Button variant="outline" onClick={() => {
+                  setFiltroEstado('all'); setFiltroUsuario('all'); setFiltroFechaInicio(''); setFiltroFechaFin(''); setIncidenciasPage(1);
+                  toast({ title: 'Filtros limpiados', description: 'Se han limpiado los filtros de búsqueda.' });
+                }}>Limpiar filtros</Button>
+              </div>
+              {/* Tabla de incidencias */}
+              {isLoadingIncidencias ? (
+                <div className="text-center py-8">Cargando incidencias...</div>
+              ) : incidencias.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No hay incidencias registradas.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Asunto</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Imagen</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Acción</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Eliminar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {incidencias.map((inc) => (
+                        <tr key={inc.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-2 font-mono text-xs">#{inc.id}</td>
+                          <td className="px-4 py-2">
+                            <Badge className={
+                              inc.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                              inc.estado === 'en_proceso' ? 'bg-blue-100 text-blue-800' :
+                              'bg-green-100 text-green-800'
+                            }>
+                              {inc.estado.charAt(0).toUpperCase() + inc.estado.slice(1).replace('_', ' ')}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-2 font-semibold text-[#5b36f2]">{inc.asunto}</td>
+                          <td className="px-4 py-2 text-sm font-mono">{inc.codigo_institucional || <span className="text-gray-400">-</span>}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500">{new Date(inc.fecha).toLocaleString('es-PE')}</td>
+                          <td className="px-4 py-2">
+                            {inc.imagenUrl ? (
+                              <a href={inc.imagenUrl} target="_blank" rel="noopener noreferrer">
+                                <img src={inc.imagenUrl} alt="Imagen incidencia" className="w-12 h-12 object-cover rounded border" />
+                              </a>
+                            ) : (
+                              <span className="text-xs text-gray-400">Sin imagen</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            <Select value={inc.estado} onValueChange={estado => handleChangeEstado(inc.id, estado)}>
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pendiente">Pendiente</SelectItem>
+                                <SelectItem value="en_proceso">En proceso</SelectItem>
+                                <SelectItem value="resuelta">Resuelta</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-4 py-2">
+                            <Button variant="destructive" size="icon" onClick={async () => {
+                              if (window.confirm('¿Seguro que deseas borrar esta incidencia?')) {
+                                let token = "";
+                                try {
+                                  const userData = localStorage.getItem('token');
+                                  token = userData || "";
+                                } catch (e) {}
+                                const res = await fetch(`/api/incidencias/admin/${inc.id}`, {
+                                  method: 'DELETE',
+                                  headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+                                });
+                                if (res.ok) {
+                                  setIncidencias(prev => prev.filter(i => i.id !== inc.id));
+                                  toast({ title: 'Incidencia eliminada', description: 'La incidencia fue eliminada correctamente.' });
+                                } else {
+                                  toast({ title: 'Error', description: 'No se pudo eliminar la incidencia.', variant: 'destructive' });
+                                }
+                              }
+                            }}>
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {/* Paginación */}
+              <div className="flex justify-between items-center mt-4">
+                <span className="text-xs text-muted-foreground">Página {incidenciasPage} de {incidenciasTotalPages} ({incidenciasTotal} incidencias)</span>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setIncidenciasPage(p => Math.max(1, p - 1))}
+                    disabled={incidenciasPage === 1 || isLoadingIncidencias}
+                    variant="outline"
+                  >Anterior</Button>
+                  <Button
+                    onClick={() => setIncidenciasPage(p => Math.min(incidenciasTotalPages, p + 1))}
+                    disabled={incidenciasPage === incidenciasTotalPages || isLoadingIncidencias}
+                    variant="outline"
+                  >Siguiente</Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

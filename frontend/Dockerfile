@@ -16,8 +16,7 @@ COPY . .
 # Construir la aplicación Next.js
 RUN npm run build
 
-# --- Fase de Producción --- 
-# Usar una imagen base más ligera para la ejecución
+
 FROM node:20-alpine
 
 # Establecer el directorio de trabajo

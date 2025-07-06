@@ -6,9 +6,10 @@ const dotenv = require('dotenv');
 
 const authRoutes = require('./routes/authRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
-const recursoRoutes = require('./routes/recursoRoutes');
+const recursoRoutes = require('./routes/recursos');
 const categoriaRoutes = require('./routes/categoriaRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const incidenciasRoutes = require('./routes/incidencias');
 
 const recursoController = require('./controllers/recursoController');
 const authMiddleware = require('./middlewares/auth').verificarToken;
@@ -28,10 +29,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   console.log(`Incoming Request: ${req.method} ${req.originalUrl}`);
   if (req.method === 'POST' && req.path.includes('/login')) {
+    const bodySafe = { ...req.body };
+    if (bodySafe.password) bodySafe.password = '***';
     console.log('Solicitud de login recibida:', {
       contentType: req.headers['content-type'],
       bodyPresente: !!req.body,
-      bodyContenido: req.body
+      bodyContenido: bodySafe
     });
   }
   next();
@@ -77,14 +80,16 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 
-console.log('Registering specific /api/recursos/download/:id route in app.js');
-app.get('/api/recursos/download/:id', recursoController.downloadRecurso);
-
 console.log('Registering Recurso Routes under /api/recursos');
-app.use('/api/recursos', recursoRoutes);
+app.use('/api/recursos', (req, res, next) => {
+  console.log('🔍 DEBUG: Request to /api/recursos with path:', req.path, 'Method:', req.method);
+  console.log('🔍 DEBUG: Full URL:', req.originalUrl);
+  next();
+}, recursoRoutes);
 
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/incidencias', incidenciasRoutes);
 
 
 app.get('/', (req, res) => {

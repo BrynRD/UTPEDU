@@ -32,17 +32,9 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Configurar Multer para usar diskStorage
+// Configurar Multer para usar memoryStorage (para Google Drive)
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, tempUploadsDir); // Guardar en el directorio temporal
-    },
-    filename: (req, file, cb) => {
-      // Usar el nombre original del archivo (Multer añadirá una extensión si es necesario)
-      cb(null, file.originalname);
-    }
-  }),
+  storage: multer.memoryStorage(), // Cambiar a memoria para obtener buffer
   fileFilter: fileFilter,
   limits: {
     fileSize: 100 * 1024 * 1024 // 100MB

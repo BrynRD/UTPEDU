@@ -192,7 +192,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       </div>
     
       {}
-      <div className="w-full md:w-1/2 flex flex-col justify-center p-6 md:p-12 overflow-y-auto max-h-screen">
+      <div className="w-full md:w-1/2 flex flex-col justify-center p-6 md:p-12 py-12 overflow-y-auto max-h-screen">
         <div className="w-full max-w-md mx-auto">
           {}
           <div className="mb-6">

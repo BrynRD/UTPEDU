@@ -21,7 +21,8 @@ interface RecursoService {
 }
 
 export const recursoService: RecursoService = {
-  getAllRecursos: async (searchTerm: string = '', page: number = 1, limit: number = 7) => {
+  // Recursos públicos para estudiantes (sin autenticación)
+  getAllRecursos: async (searchTerm: string = '', page: number = 1, limit: number = 10) => {
     try {
       const queryParams = new URLSearchParams({
         searchTerm: searchTerm.toString(),
@@ -29,20 +30,31 @@ export const recursoService: RecursoService = {
         limit: limit.toString(),
       }).toString();
 
-      const url = `${API_URL}/recursos?${queryParams}`;
+      const url = `${API_URL}/recursos/publicos?${queryParams}`;
 
-      console.log('Frontend Service: Sending GET request to URL:', url);
+      console.log('🔍 Frontend Service: Sending GET request to PUBLIC URL:', url);
 
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await axios.get(url);
+      console.log('✅ Frontend Service: Received response data:', {
+        success: response.data.success,
+        resourcesCount: response.data.recursos?.length,
+        totalRecursos: response.data.totalRecursos
       });
-      console.log('Frontend Service: Received response data:', response.data);
-      return response.data;
+      
+      return {
+        recursos: response.data.recursos || [],
+        totalRecursos: response.data.totalRecursos || 0,
+        currentPage: response.data.currentPage || 1,
+        totalPages: response.data.totalPages || 1
+      };
     } catch (error) {
-      console.error('Error al obtener recursos:', error);
-      throw error;
+      console.error('❌ Error al obtener recursos públicos:', error);
+      return {
+        recursos: [],
+        totalRecursos: 0,
+        currentPage: 1,
+        totalPages: 1
+      };
     }
   },
 
@@ -91,10 +103,11 @@ export const recursoService: RecursoService = {
 
   updateRecurso: async (id: string, recursoData: any) => {
     try {
+      let headers: any = {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      };
       const response = await axios.put(`${API_URL}/recursos/${id}`, recursoData, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+        headers
       });
       return response.data;
     } catch (error) {

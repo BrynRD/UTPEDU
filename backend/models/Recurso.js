@@ -50,12 +50,25 @@ class Recurso {
   }
 
   
-  static async update(id, { titulo, descripcion, categoriaId }) {
-    const [result] = await pool.query(
-      'UPDATE recursos SET titulo = ?, descripcion = ?, categoria_id = ? WHERE id = ?',
-      [titulo, descripcion, categoriaId, id]
-    );
-    
+  static async update(id, { titulo, descripcion, categoriaId, archivoUrl, archivoId, tipoArchivo }) {
+    // Construir la consulta dinámicamente según los campos presentes
+    let query = 'UPDATE recursos SET titulo = ?, descripcion = ?, categoria_id = ?';
+    let params = [titulo, descripcion, categoriaId];
+    if (archivoUrl) {
+      query += ', archivo_url = ?';
+      params.push(archivoUrl);
+    }
+    if (archivoId) {
+      query += ', archivo_id = ?';
+      params.push(archivoId);
+    }
+    if (tipoArchivo) {
+      query += ', tipo_archivo = ?';
+      params.push(tipoArchivo);
+    }
+    query += ' WHERE id = ?';
+    params.push(id);
+    const [result] = await pool.query(query, params);
     return result.affectedRows > 0;
   }
 

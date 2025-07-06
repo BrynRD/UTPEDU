@@ -1,19 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const recursoController = require('../controllers/recursoController');
-const authMiddleware = require('../middlewares/authMiddleware');
-const upload = require('../middlewares/uploadMiddleware');
+const { verificarToken } = require('../middlewares/auth');
+const upload = require('../middlewares/upload');
 
-console.log('Recurso Routes: Loading router definitions.'); // Log at the beginning of the file
+console.log('Recurso Routes: Loading router definitions.');
+
+// Log para debug de todas las rutas
+router.use((req, res, next) => {
+  console.log('🔍 RECURSOS ROUTER: Checking path:', req.path, 'Method:', req.method);
+  next();
+});
+
+// RUTAS PÚBLICAS (SIN AUTENTICACIÓN) - Para estudiantes
+router.get('/publicos', recursoController.getRecursosPublicos);
+router.get('/download/:id', (req, res, next) => {
+  console.log('🔥 DOWNLOAD ROUTE HIT: ID =', req.params.id);
+  recursoController.downloadRecurso(req, res, next);
+});
 
 // Rutas protegidas que requieren autenticación
-router.use(authMiddleware);
-
-// Ruta para descargar un recurso (Moved to be more specific)
-router.get('/download/:id', (req, res, next) => {
-  console.log('Recurso Routes: Attempting to match /download/:id', req.params.id); // Log before controller
-  next(); // Continue to the controller
-}, recursoController.downloadRecurso);
+router.use(verificarToken);
 
 // Obtener estadísticas de recursos
 router.get('/estadisticas', recursoController.getEstadisticas);
@@ -24,18 +31,18 @@ router.get('/', recursoController.getAllRecursos);
 // Obtener recursos del usuario actual
 router.get('/mis-recursos', recursoController.getMisRecursos);
 
-// Obtener un recurso específico (More general route)
-router.get('/:id', recursoController.getRecursoById);
-
 // Crear un nuevo recurso
 router.post('/', upload.single('archivo'), recursoController.createRecurso);
 
 // Actualizar un recurso
-router.put('/:id', recursoController.updateRecurso);
+router.put('/:id', upload.single('archivo'), recursoController.updateRecurso);
 
 // Eliminar un recurso
 router.delete('/:id', recursoController.deleteRecurso);
 
-console.log('Recurso Routes: Router definitions loaded.'); // Log at the end of the file
+console.log('Recurso Routes: Router definitions loaded.');
 
-module.exports = router; 
+// Obtener un recurso específico (DEBE IR AL FINAL - ruta más general)
+router.get('/:id', recursoController.getRecursoById);
+
+module.exports = router;

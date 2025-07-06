@@ -19,7 +19,7 @@ type User = {
 type AuthContextType = {
   isAuthenticated: boolean
   user: User | null
-  login: (codigoInstitucional: string, password: string) => Promise<any>
+  login: (codigoInstitucional: string, password: string, captchaToken?: string) => Promise<any>
   logout: () => void
   loading: boolean
 }
@@ -96,12 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Función de login mejorada para ser más flexible con la estructura de respuesta
-  const login = async (codigoInstitucional: string, password: string) => {
+  const login = async (codigoInstitucional: string, password: string, captchaToken?: string) => {
     try {
       console.log('Iniciando login para:', codigoInstitucional);
       
       // Llamar al servicio de autenticación
-      const response = await authService.login(codigoInstitucional, password);
+      const response = await authService.login(codigoInstitucional, password, captchaToken);
       
       console.log('Respuesta del servidor:', response);
       

@@ -20,7 +20,9 @@ import {
   GraduationCap,
   Clock,
   Star,
-  Calendar
+  Calendar,
+  Ticket,
+  Image as ImageIcon
 } from "lucide-react"
 import { authService, userService } from "@/lib/api"
 import { toast } from "@/components/ui/use-toast"
@@ -28,7 +30,10 @@ import { Toaster } from "@/components/ui/toaster"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
-import api, { recursoService } from "@/lib/api"
+import { recursoService } from "@/lib/api/recursoService"
+import axios from "axios"
+import { RecursoViewer } from '@/components/RecursoViewer'
+import Link from "next/link"
 
 interface Recurso {
   id: number;
@@ -36,11 +41,13 @@ interface Recurso {
   descripcion: string;
   archivo_url: string;
   categoria_id: number;
-  usuario_id: number;
-  fecha_creacion: string; // o Date si se parsea
-  // Añadir otras propiedades si el backend las devuelve en getAllRecursos, como nombre de categoría/usuario
   categoria_nombre?: string;
-  usuario_nombre?: string; // o un objeto de usuario parcial
+  usuario_id: number;
+  profesorNombre?: string;
+  profesor_email?: string;
+  fechaCreacion: string;
+  tipo_archivo?: string;
+  descargas?: number;
 }
 
 export default function StudentDashboard() {
@@ -99,6 +106,12 @@ export default function StudentDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const router = useRouter();
+
+  const [selectedRecurso, setSelectedRecurso] = useState<Recurso | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const [incidencias, setIncidencias] = useState<any[]>([]);
+  const [isLoadingIncidencias, setIsLoadingIncidencias] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -164,7 +177,7 @@ export default function StudentDashboard() {
       try {
         setIsLoadingMateriales(true);
         console.log('Fetching materiales with params directly in useEffect:', { searchTerm, currentPage });
-        const response = await recursoService.getAllRecursos(searchTerm, currentPage, 7);
+        const response = await recursoService.getAllRecursos(searchTerm, currentPage, 10);
         console.log('Frontend useEffect: Received', {
           recursosCount: response.recursos.length,
           totalRecursos: response.totalRecursos,
@@ -186,10 +199,28 @@ export default function StudentDashboard() {
       } finally {
         setIsLoadingMateriales(false);
       }
-    }, 100);
+    }, 300);
 
     return () => clearTimeout(handler);
   }, [searchTerm, currentPage]);
+
+  useEffect(() => {
+    if (userData.email) {
+      setIsLoadingIncidencias(true);
+      // Obtener el token del usuario autenticado
+      let token = "";
+      try {
+        const userDataLocal = authService.getUserData();
+        token = userDataLocal?.token || localStorage.getItem('token') || "";
+      } catch (e) {}
+      fetch(`/api/incidencias/usuario`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+      })
+        .then(res => res.json())
+        .then(data => setIncidencias(data.incidencias || []))
+        .finally(() => setIsLoadingIncidencias(false));
+    }
+  }, [userData.email]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -330,10 +361,14 @@ export default function StudentDashboard() {
         throw new Error('No hay sesión activa');
       }
       
-      const response = await api.post('/usuarios/cambiar-password', {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/usuarios/cambiar-password`, {
         passwordActual: passwordData.passwordActual,
         passwordNuevo: passwordData.passwordNuevo,
         confirmarPassword: passwordData.confirmarPassword
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
       });
       
       const data = response.data;
@@ -479,6 +514,15 @@ export default function StudentDashboard() {
     setCurrentPage(newPage);
   };
 
+  // Agregar función para formatear la fecha de manera segura
+  function formatFecha(fecha: string) {
+    if (!fecha) return 'Fecha no disponible';
+    const d = new Date(fecha);
+    return isNaN(d.getTime())
+      ? 'Fecha no disponible'
+      : d.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -519,7 +563,18 @@ export default function StudentDashboard() {
             Bienvenido(a) {userData.nombre} {userData.apellido}. Gestiona tus cursos y perfil.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            asChild
+            title="Reportar incidencia"
+          >
+            <Link href="/reportar-incidencia">
+              <Ticket className="h-5 w-5 mr-1" />
+              <span className="hidden sm:inline">Reportar incidencia</span>
+            </Link>
+          </Button>
           <Button variant="outline">
             <Download className="mr-2 h-4 w-4" />
             Mis Descargas
@@ -528,10 +583,13 @@ export default function StudentDashboard() {
       </div>
 
       <Tabs defaultValue="resumen" className="space-y-6">
-        <TabsList className="grid grid-cols-3 md:grid-cols-3 lg:w-[600px]">
+        <TabsList className="grid grid-cols-4 md:grid-cols-4 lg:w-[800px]">
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
           <TabsTrigger value="recursos">Recursos</TabsTrigger>
           <TabsTrigger value="perfil">Mi Perfil</TabsTrigger>
+          <TabsTrigger value="incidencias" className="text-[#5b36f2] data-[state=active]:bg-[#5b36f2] data-[state=active]:text-white">
+            <Ticket className="h-4 w-4 mr-1" /> Mis Incidencias
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumen" className="space-y-6">
@@ -650,9 +708,11 @@ export default function StudentDashboard() {
                 <div className="space-y-1">
                   <div className="bg-gray-50 p-3 rounded-t-md">
                     <div className="grid grid-cols-12 text-sm font-medium text-gray-500">
-                      <div className="col-span-6">Nombre</div>
-                      <div className="col-span-3">Curso</div>
+                      <div className="col-span-4">Archivo</div>
+                      <div className="col-span-2">Profesor</div>
+                      <div className="col-span-2">Categoría</div>
                       <div className="col-span-2">Fecha</div>
+                      <div className="col-span-1">Tipo</div>
                       <div className="col-span-1 text-right">Acción</div>
                     </div>
                   </div>
@@ -664,31 +724,67 @@ export default function StudentDashboard() {
                     </div>
                   ) : materiales.length === 0 ? (
                     <div className="text-center p-6 text-gray-600">
-                      No hay materiales disponibles en este momento.
+                      {searchTerm ? 
+                        `No se encontraron materiales que coincidan con "${searchTerm}"` :
+                        "No hay materiales disponibles en este momento."
+                      }
                     </div>
                   ) : (
                     materiales.map((material, index) => (
                       <div 
                         key={material.id} 
-                        className={`grid grid-cols-12 text-sm p-3 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                        className={`grid grid-cols-12 text-sm p-3 hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                       >
-                        <div className="col-span-6 flex items-center gap-2">
-                          <div className={`h-8 w-8 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center`}>
-                            <span className="font-medium text-xs">{/* Material Type/Icon */}</span>
+                        <div className="col-span-4 flex items-center gap-3">
+                          <div className={`h-8 w-8 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-medium`}>
+                            {material.tipo_archivo || 'DOC'}
                           </div>
-                          <span className="font-medium">{material.titulo}</span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900 leading-tight">{material.titulo}</span>
+                            <span className="text-xs text-gray-500 truncate max-w-[200px]">{material.descripcion}</span>
+                          </div>
                         </div>
-                        <div className="col-span-3 flex items-center">{material.categoria_nombre || `Cat ID: ${material.categoria_id}`}</div>
-                        <div className="col-span-2 flex items-center">{new Date(material.fecha_creacion).toLocaleDateString()}</div>
+                        <div className="col-span-2 flex items-center">
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {material.profesorNombre && material.profesorNombre.trim() !== ''
+                                ? material.profesorNombre
+                                : 'Profesor no disponible'}
+                            </span>
+                            <span className="text-xs text-gray-500">{material.profesor_email}</span>
+                          </div>
+                        </div>
+                        <div className="col-span-2 flex items-center">
+                          <Badge variant="secondary" className="text-xs">
+                            {material.categoria_nombre || `Cat ${material.categoria_id}`}
+                          </Badge>
+                        </div>
+                        <div className="col-span-2 flex items-center text-gray-600">
+                          {formatFecha(material.fechaCreacion)}
+                        </div>
+                        <div className="col-span-1 flex items-center">
+                          <Badge variant="outline" className="text-xs">
+                            {material.tipo_archivo || 'DOC'}
+                          </Badge>
+                        </div>
                         <div className="col-span-1 flex justify-end items-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownload(material.id)}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Descargar
-                          </Button>
+                          <div className="flex-shrink-0 ml-4 flex gap-2">
+                            <Button 
+                              onClick={() => setSelectedRecurso(material)}
+                              className="bg-gray-200 hover:bg-gray-300 text-gray-800"
+                              size="sm"
+                            >
+                              Vista previa
+                            </Button>
+                            <Button 
+                              onClick={() => handleDownload(material.id)}
+                              className="bg-[#5b36f2] hover:bg-[#4c2ed9] text-white"
+                              size="sm"
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Descargar
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))
@@ -746,68 +842,164 @@ export default function StudentDashboard() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Recursos Educativos Disponibles</CardTitle>
-                <CardDescription>Explora y descarga materiales subidos por la comunidad.</CardDescription>
+                <CardDescription>Explora y descarga materiales subidos por profesores.</CardDescription>
               </div>
               <div className="flex items-center space-x-2">
+                <Search className="h-4 w-4 text-gray-400" />
                 <Input
                   type="text"
-                  placeholder="Buscar recursos..."
+                  placeholder="Buscar por título, descripción o profesor..."
                   value={searchTerm}
                   onChange={handleSearchChange}
-                  className="w-64"
+                  className="w-80"
                 />
               </div>
             </CardHeader>
             <CardContent>
               {isLoadingMateriales ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                <div className="flex items-center justify-center h-48">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#5b36f2] mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Cargando recursos...</p>
+                  </div>
                 </div>
               ) : materiales.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <FileText className="h-16 w-16 text-gray-300 mb-4" />
-                  <h3 className="text-xl font-medium">No se encontraron recursos</h3>
-                  <p className="text-sm text-gray-500 mt-2 mb-6 max-w-md">
-                    Intenta con otro término de búsqueda o sube un nuevo recurso.
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <FileText className="h-20 w-20 text-gray-300 mb-6" />
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">No se encontraron recursos</h3>
+                  <p className="text-sm text-gray-500 max-w-md">
+                    {searchTerm ? 
+                      `No hay recursos que coincidan con "${searchTerm}". Intenta con otros términos de búsqueda.` :
+                      "Aún no hay recursos disponibles. Los profesores subirán materiales educativos pronto."
+                    }
                   </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {materiales.map((material) => (
-                    <Card key={material.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          {renderFileIcon(material.archivo_url)}
-                          <div>
-                            <h4 className="font-medium">{material.titulo}</h4>
-                            <p className="text-sm text-gray-500">{material.categoria_nombre} • Subido el {new Date(material.fecha_creacion).toLocaleDateString()}</p>
+                    <Card key={material.id} className="hover:shadow-md transition-shadow duration-200">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-4 flex-1">
+                            <div className="flex-shrink-0 mt-1">
+                              {renderFileIcon(material.tipo_archivo || material.archivo_url)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <h4 className="text-lg font-semibold text-gray-900 mb-2 leading-tight">
+                                    {material.titulo}
+                                  </h4>
+                                  {material.descripcion && (
+                                    <p className="text-gray-600 mb-3 text-sm leading-relaxed">
+                                      {material.descripcion}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                                <div className="flex items-center">
+                                  <User className="h-4 w-4 mr-1" />
+                                  <span className="font-medium">
+                                    {material.profesorNombre && material.profesorNombre.trim() !== ''
+                                      ? material.profesorNombre
+                                      : 'Profesor no disponible'}
+                                  </span>
+                                  {material.profesor_email && (
+                                    <span className="ml-1">({material.profesor_email})</span>
+                                  )}
+                                </div>
+                                
+                                {material.categoria_nombre && (
+                                  <div className="flex items-center">
+                                    <BookOpen className="h-4 w-4 mr-1" />
+                                    <Badge variant="secondary" className="text-xs">
+                                      {material.categoria_nombre}
+                                    </Badge>
+                                  </div>
+                                )}
+                                
+                                <div className="flex items-center">
+                                  <Calendar className="h-4 w-4 mr-1" />
+                                  <span>
+                                    {formatFecha(material.fechaCreacion)}
+                                  </span>
+                                </div>
+                                
+                                {material.tipo_archivo && (
+                                  <div className="flex items-center">
+                                    <FileText className="h-4 w-4 mr-1" />
+                                    <Badge variant="outline" className="text-xs">
+                                      {material.tipo_archivo.toUpperCase()}
+                                    </Badge>
+                                  </div>
+                                )}
+                                
+                                {material.descargas !== undefined && (
+                                  <div className="flex items-center">
+                                    <Download className="h-4 w-4 mr-1" />
+                                    <span>{material.descargas} descargas</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex-shrink-0 ml-4 flex gap-2">
+                            <Button 
+                              onClick={() => setSelectedRecurso(material)}
+                              className="bg-gray-200 hover:bg-gray-300 text-gray-800"
+                              size="sm"
+                            >
+                              Vista previa
+                            </Button>
+                            <Button 
+                              onClick={() => handleDownload(material.id)}
+                              className="bg-[#5b36f2] hover:bg-[#4c2ed9] text-white"
+                              size="sm"
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Descargar
+                            </Button>
                           </div>
                         </div>
-                        <Button onClick={() => handleDownload(material.id)}>Descargar</Button>
-                      </div>
+                      </CardContent>
                     </Card>
                   ))}
-                  <div className="flex justify-center mt-4">
-                    <div className="flex space-x-2">
+                  
+                  {totalPages > 1 && (
+                    <div className="flex justify-center items-center mt-8 space-x-4">
                       <Button
                         variant="outline"
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
+                        size="sm"
                       >
+                        <span className="mr-2">←</span>
                         Anterior
                       </Button>
-                      <span className="flex items-center px-4">
-                        Página {currentPage} de {totalPages}
-                      </span>
+                      
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-600">
+                          Página {currentPage} de {totalPages}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          (Mostrando {materiales.length} de {materiales.length + (currentPage - 1) * 10} recursos disponibles)
+                        </span>
+                      </div>
+                      
                       <Button
                         variant="outline"
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
+                        size="sm"
                       >
                         Siguiente
+                        <span className="ml-2">→</span>
                       </Button>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -1066,8 +1258,172 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="incidencias" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mis Incidencias</CardTitle>
+              <CardDescription>Historial de reportes enviados a soporte técnico</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingIncidencias ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#5b36f2] mx-auto mb-4"></div>
+                  <p className="text-gray-600">Cargando incidencias...</p>
+                </div>
+              ) : incidencias.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <AlertCircle className="h-20 w-20 text-[#5b36f2] mb-6" />
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">No has reportado incidencias</h3>
+                  <p className="text-sm text-gray-500 max-w-md">
+                    Cuando reportes un problema, aparecerá aquí el historial de tus incidencias.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {incidencias.map((inc) => (
+                    <Card key={inc.id} className="border-l-4 border-[#5b36f2] hover:shadow-md transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col lg:flex-row gap-6">
+                          {/* Imagen con vista previa */}
+                          {inc.imagenUrl && (
+                            <div className="flex-shrink-0">
+                              <div 
+                                className="relative cursor-pointer group"
+                                onClick={() => setSelectedImage(inc.imagenUrl)}
+                              >
+                                <img 
+                                  src={inc.imagenUrl} 
+                                  alt="Imagen incidencia" 
+                                  className="w-32 h-32 object-cover rounded-lg border-2 border-[#5b36f2] hover:border-[#4c2fd9] transition-colors" 
+                                />
+                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-2 text-center">Clic para ampliar</p>
+                            </div>
+                          )}
+                          
+                          {/* Contenido principal */}
+                          <div className="flex-1 min-w-0">
+                            {/* Header con ID, estado y fecha */}
+                            <div className="flex flex-wrap items-center gap-3 mb-3">
+                              <Badge variant="outline" className="text-xs font-mono bg-gray-50">
+                                #{inc.id}
+                              </Badge>
+                              <Badge className={
+                                inc.estado === 'pendiente'
+                                  ? 'bg-yellow-100 text-yellow-800 border-yellow-200 text-xs'
+                                  : inc.estado === 'en_proceso'
+                                  ? 'bg-blue-100 text-blue-800 border-blue-200 text-xs'
+                                  : 'bg-green-100 text-green-800 border-green-200 text-xs'
+                              }>
+                                {inc.estado === 'en_proceso'
+                                  ? 'En proceso'
+                                  : inc.estado === 'resuelta'
+                                  ? 'Resuelta'
+                                  : 'Pendiente'}
+                              </Badge>
+                              <span className="text-xs text-gray-500 ml-auto">
+                                {new Date(inc.fecha).toLocaleString('es-PE', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            
+                            {/* Asunto destacado */}
+                            <h3 className="text-lg font-semibold text-[#5b36f2] mb-2 hover:text-[#4c2fd9] transition-colors cursor-pointer">
+                              {inc.asunto}
+                            </h3>
+                            
+                            {/* Email del usuario */}
+                            <div className="flex items-center gap-2 mb-3">
+                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                              </svg>
+                              <span className="text-sm text-gray-600 font-medium">{inc.email}</span>
+                            </div>
+                            
+                            {/* Descripción */}
+                            <div className="bg-gray-50 p-4 rounded-lg mb-3">
+                              <p className="text-gray-800 text-sm leading-relaxed">
+                                {inc.descripcion}
+                              </p>
+                            </div>
+                            
+                            {/* Footer con información adicional */}
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <div className="flex items-center gap-4">
+                                <span>Reportado por: {inc.nombre}</span>
+                                {inc.imagenUrl && (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Con imagen
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
       <Toaster />
+      {selectedRecurso && (
+        <RecursoViewer
+          recurso={{
+            id: selectedRecurso.id,
+            titulo: selectedRecurso.titulo,
+            descripcion: selectedRecurso.descripcion,
+            archivo_url: selectedRecurso.archivo_url,
+            categoria_id: selectedRecurso.categoria_id,
+            categoria_nombre: selectedRecurso.categoria_nombre || '',
+            fecha_creacion: selectedRecurso.fechaCreacion || selectedRecurso.fecha_creacion || '',
+            descargas: selectedRecurso.descargas ?? 0,
+            tipo_archivo: selectedRecurso.tipo_archivo || selectedRecurso.tipoArchivo || '',
+          }}
+          isOpen={!!selectedRecurso}
+          onClose={() => setSelectedRecurso(null)}
+        />
+      )}
+
+      {/* Modal para ver imagen en grande */}
+      {selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="relative max-w-4xl max-h-full">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img
+              src={selectedImage}
+              alt="Vista previa ampliada"
+              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1077,9 +1433,58 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 // Función auxiliar para renderizar iconos de archivo
-function renderFileIcon(archivoUrl: string) {
-  const extension = archivoUrl.split('.').pop()?.toLowerCase();
-  // Implementar lógica para renderizar diferentes iconos basados en la extensión
-  // Por ahora, un icono genérico de archivo
-  return <FileText className="h-6 w-6 text-blue-500" />;
+function renderFileIcon(tipoArchivo: string) {
+  const extension = tipoArchivo?.toLowerCase();
+  
+  // Iconos específicos según el tipo de archivo
+  if (extension === 'pdf') {
+    return (
+      <div className="bg-red-100 p-3 rounded-lg">
+        <FileText className="h-6 w-6 text-red-600" />
+      </div>
+    );
+  } else if (['doc', 'docx'].includes(extension || '')) {
+    return (
+      <div className="bg-blue-100 p-3 rounded-lg">
+        <FileText className="h-6 w-6 text-blue-600" />
+      </div>
+    );
+  } else if (['xls', 'xlsx'].includes(extension || '')) {
+    return (
+      <div className="bg-green-100 p-3 rounded-lg">
+        <FileText className="h-6 w-6 text-green-600" />
+      </div>
+    );
+  } else if (['ppt', 'pptx'].includes(extension || '')) {
+    return (
+      <div className="bg-orange-100 p-3 rounded-lg">
+        <FileText className="h-6 w-6 text-orange-600" />
+      </div>
+    );
+  } else if (['zip', 'rar', '7z'].includes(extension || '')) {
+    return (
+      <div className="bg-purple-100 p-3 rounded-lg">
+        <FileText className="h-6 w-6 text-purple-600" />
+      </div>
+    );
+  } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(extension || '')) {
+    return (
+      <div className="bg-pink-100 p-3 rounded-lg">
+        <FileText className="h-6 w-6 text-pink-600" />
+      </div>
+    );
+  } else if (['mp4', 'avi', 'mov', 'wmv'].includes(extension || '')) {
+    return (
+      <div className="bg-indigo-100 p-3 rounded-lg">
+        <FileText className="h-6 w-6 text-indigo-600" />
+      </div>
+    );
+  } else {
+    // Icono genérico para otros tipos de archivo
+    return (
+      <div className="bg-gray-100 p-3 rounded-lg">
+        <FileText className="h-6 w-6 text-gray-600" />
+      </div>
+    );
+  }
 }

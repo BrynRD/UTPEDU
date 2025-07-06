@@ -45,11 +45,14 @@ api.interceptors.response.use(
 
       // Si el error es 401, limpiar el token y redirigir al login
       if (error.response.status === 401) {
-        console.log('Token expirado o inválido, limpiando datos de sesión...');
-        localStorage.removeItem('token');
-        localStorage.removeItem('usuario');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        // Solo redirigir si NO estamos en /login
+        if (window.location.pathname !== '/login') {
+          console.log('Token expirado o inválido, limpiando datos de sesión...');
+          localStorage.removeItem('token');
+          localStorage.removeItem('usuario');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
       }
     } else if (error.request) {
       // La solicitud fue hecha pero no se recibió respuesta
@@ -65,7 +68,7 @@ api.interceptors.response.use(
 // Servicios de autenticación
 export const authService = {
   // Modificado para compatibilidad tanto con email como con codigoInstitucional
-  login: async (codigoInstitucional: string, password: string) => {
+  login: async (codigoInstitucional: string, password: string, captchaToken?: string) => {
     try {
       // Generar el email basado en el código institucional si es necesario
       let email;
@@ -83,7 +86,8 @@ export const authService = {
       const response = await api.post('/auth/login', { 
         email, 
         codigoInstitucional,
-        password 
+        password,
+        captchaToken
       });
       
       console.log('Respuesta del servidor:', response.data);
@@ -226,8 +230,8 @@ export const userService = {
   }
 };
 
-// Servicios de recursos
-export const recursoService = {
+// Servicios de recursos - REMOVIDO: usar recursoService.ts en su lugar
+export const recursoServiceOLD = {
   getAllRecursos: () => api.get('/recursos').then(res => res.data),
   getMisRecursos: () => api.get('/recursos/mis-recursos').then(res => res.data),
   getRecursoById: (id: string) => api.get(`/recursos/${id}`).then(res => res.data),

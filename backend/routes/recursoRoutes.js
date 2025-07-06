@@ -10,7 +10,7 @@ router.post('/', verificarToken, upload.single('archivo'), recursoController.cre
 router.get('/', recursoController.getAllRecursos);
 router.get('/mis-recursos', verificarToken, recursoController.getMisRecursos);
 router.get('/:id', recursoController.getRecursoById);
-router.put('/:id', verificarToken, recursoController.updateRecurso);
+router.put('/:id', verificarToken, upload.single('archivo'), recursoController.updateRecurso);
 router.delete('/:id', verificarToken, recursoController.deleteRecurso);
 
 // Ruta para descargar un recurso por su ID

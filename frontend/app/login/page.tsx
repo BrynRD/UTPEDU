@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,6 +8,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Eye, EyeOff, Info } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import ReCAPTCHA from "react-google-recaptcha"
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -18,6 +19,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState("")
+  const captchaRef = useRef<ReCAPTCHA>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -45,27 +48,39 @@ export default function LoginPage() {
     return newErrors
   }
 
+  const handleCaptcha = (token: string | null) => {
+    setCaptchaToken(token || "")
+    if (errors.captcha) {
+      setErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors.captcha
+        return newErrors
+      })
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     const newErrors = validateForm()
-
+    if (process.env.NEXT_PUBLIC_DISABLE_CAPTCHA !== 'true' && !captchaToken) {
+      newErrors.captcha = "Por favor completa el captcha."
+    }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
     }
-
     setIsLoading(true)
-
     try {
-      
-      await login(formData.codigoInstitucional, formData.password)
-      
+      await login(formData.codigoInstitucional, formData.password, captchaToken)
     } catch (error: any) {
-      console.error('Error al iniciar sesión:', error)
       setErrors({
         submit: error.response?.data?.mensaje || 'Credenciales inválidas. Por favor verifique su código y contraseña.'
       })
+      setFormData((prev) => ({ ...prev, password: "" }))
+      if (captchaRef.current) {
+        captchaRef.current.reset();
+      }
+      setCaptchaToken("");
     } finally {
       setIsLoading(false)
     }
@@ -169,6 +184,19 @@ export default function LoginPage() {
                 </Link>
               </div>
             </div>
+            
+            <div className="flex justify-center">
+              {process.env.NEXT_PUBLIC_DISABLE_CAPTCHA !== 'true' && (
+                <ReCAPTCHA
+                  ref={captchaRef}
+                  sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
+                  onChange={handleCaptcha}
+                />
+              )}
+            </div>
+            {errors.captcha && (
+              <p className="text-sm text-red-500 text-center">{errors.captcha}</p>
+            )}
             
             {errors.submit && (
               <div className="bg-red-50 p-3 rounded-md border border-red-200">
